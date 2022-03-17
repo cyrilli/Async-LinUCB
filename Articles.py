@@ -33,11 +33,6 @@ class ArticleManager():
 	def simulateArticlePool(self):
 		articles = []
 
-		# for key in range(self.n_articles):
-		# 	featureVector = self.FeatureFunc(self.dimension, argv=self.argv)
-		# 	l2_norm = np.linalg.norm(featureVector, ord=2)
-		# 	articles.append(Article(key, featureVector/l2_norm))
-
 		feature_matrix = np.empty([self.n_articles, self.dimension])
 		for i in range(self.dimension):
 			feature_matrix[:, i] = np.random.normal(0, np.sqrt(1.0*(self.dimension-i)/self.dimension), self.n_articles)
