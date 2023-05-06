@@ -190,7 +190,7 @@ class simulateOnlineData(object):
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(description = '')
 	parser.add_argument('--T', dest='T', help='total number of iterations')
-	parser.add_argument('--N', dest='T', help='total number of clients')
+	parser.add_argument('--N', dest='N', help='total number of clients')
 	parser.add_argument('--contextdim', type=int, help='Set dimension of context features.')
 	args = parser.parse_args()
 
@@ -198,7 +198,7 @@ if __name__ == '__main__':
 	if args.contextdim:
 		context_dimension = int(args.contextdim)
 	else:
-		context_dimension = 25
+		context_dimension = 5
 	if args.T:
 		testing_iterations = int(args.T)
 	else:
@@ -233,7 +233,8 @@ if __name__ == '__main__':
 	lambda_ = 0.1
 	delta = 1e-1
 
-	algorithms['gamma=1'] = AsyncLinUCB(dimension=context_dimension, alpha=-1, lambda_=lambda_, delta_=delta, NoiseScale=NoiseScale, gammaU=1, gammaD=1)
+	algorithms['gamma=1'] = AsyncLinUCB(dimension=context_dimension, alpha=-1, lambda_=lambda_, delta_=delta, 
+				     							   NoiseScale=NoiseScale, gammaU=1, gammaD=1)
 	algorithms['gamma=2'] = AsyncLinUCB(dimension=context_dimension, alpha=-1, lambda_=lambda_, delta_=delta,
 												   NoiseScale=NoiseScale, gammaU=2, gammaD=2)
 	algorithms['gamma=5'] = AsyncLinUCB(dimension=context_dimension, alpha=-1, lambda_=lambda_, delta_=delta,

@@ -192,20 +192,22 @@ class simulateOnlineData(object):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='')
     parser.add_argument('--T', dest='T', help='total number of iterations')
-    parser.add_argument('--N', dest='T', help='total number of clients')
+    parser.add_argument('--N', dest='N', help='total number of clients')
     parser.add_argument('--contextdim', type=int, help='Set dimension of context features.')
     parser.add_argument('--globaldim', dest='global_dim', help='Set dimension of globally shared context features.')
+    parser.add_argument('--accuracy', dest = 'E', type=float, help = 'Set the target accuracy')
+    parser.add_argument('--confidence', dest = 'C', type=float, help = 'Set the confidence level')
     args = parser.parse_args()
 
     ## Environment Settings ##
     if args.contextdim:
         context_dimension = int(args.contextdim)
     else:
-        context_dimension = 25
+        context_dimension = 5
     if args.T:
         testing_iterations = int(args.T)
     else:
-        testing_iterations = 50000
+        testing_iterations = 5000
     if args.N:
         n_users = int(args.N)
     else:
@@ -214,7 +216,17 @@ if __name__ == '__main__':
         global_dim = int(args.globaldim)
         assert global_dim < context_dimension
     else:
-        global_dim = 16
+        global_dim = 5 # change the default global dimention to 5
+	# Set the target accuracy(epsilon)
+    if args.E:
+        epsilon = float(args.E)
+    else:
+        epsilon = 2*(1-np.cos(0.01))
+    # Set the target confidence level(delta)
+    if args.C:
+        confidence = float(args.C)
+    else:
+        confidence = 0.05
     NoiseScale = 0.1  # standard deviation of Gaussian noise
     n_articles = 1000
     poolArticleSize = 10

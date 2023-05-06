@@ -17,3 +17,14 @@ For experiments on realworld dataset, e.g. LastFM, Delicious, MovieLens,
 - First download these publicly available data into Dataset folder 
 - Then process the dataset following instructions in the appendix of the paper, which would generate the item feature vector file and the event file. Example scripts for processing data are given in Dataset folder.
 - Run experiments using the provided python script, e.g. ``python SimulationRealworldData.py --dataset LastFM``
+
+
+Updates::
+For Testing LinGapE in homogeneous clients, run:
+```console
+python SimHomogeneousClientsLinGapE.py
+```
+
+Experiment results can be found in "./LinGapE_Simulations" folder, which contains:
+- "AccCommCost\_[startTime].csv": communication cost at each iteration for each algorithm
+- "SampleComplex\_[startTime].csv": number of samples required to estimate the best for each algorithm

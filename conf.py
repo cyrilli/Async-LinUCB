@@ -3,6 +3,7 @@ Created on May 12, 2015
 '''
 import os
 
+save_LinGapE_address = "./LinGapE_Simulations"
 sim_files_folder = "./Simulation_MAB_files"
 save_address = "./SimulationResults"
 LastFM_save_address = "./LastFMResults"
