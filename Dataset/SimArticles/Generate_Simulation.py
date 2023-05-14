@@ -22,7 +22,7 @@ if __name__ == '__main__':
 		n_users = int(args.N)
 	else:
 		n_users = 100
-	n_articles = 10
+	n_articles = 5
 
 	UM = UserManager(context_dimension, n_users, thetaFunc=gaussianFeature, argv={'l2_limit': 1})
 	
@@ -36,7 +36,7 @@ if __name__ == '__main__':
 	users = UM.loadHomoUsers('usersHomo.dat')
 	user_feature_vector = users[0].theta
 	AM = ArticleManager(context_dimension, n_articles=n_articles, argv={'l2_limit': 1}, theta=user_feature_vector)
-	# AM.GenerateArticles()
+	AM.GenerateArticles()
 	gap = 0.5
 	articles = AM.loadArticles('ArticlesForHomo_' + str(gap) + '_' + str(n_articles) + '.dat')
 	

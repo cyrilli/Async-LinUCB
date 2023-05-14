@@ -34,8 +34,8 @@ class LinGapE:
 			# For the homogeneous case:
 			self.theta = users[0].theta
 
-			AM = ArticleManager(self.dimension, 10, argv={'l2_limit': 1}, theta=self.theta)
-			Article_filename = '/nfs/stak/users/songchen/research/Async-LinUCB/Dataset/SimArticles/ArticlesForHomo_' + str(gap/10) + '_' + str(10) + '.dat'
+			AM = ArticleManager(self.dimension, 5, argv={'l2_limit': 1}, theta=self.theta)
+			Article_filename = '/nfs/stak/users/songchen/research/Async-LinUCB/Dataset/SimArticles/ArticlesForHomo_' + str(gap/10) + '_' + str(5) + '.dat'
 			articles = AM.loadArticles(Article_filename)
 			self.X = np.zeros((len(articles), self.dimension), dtype=float)
 			self.K = len(articles)
