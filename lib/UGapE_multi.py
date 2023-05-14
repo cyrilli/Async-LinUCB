@@ -4,6 +4,8 @@ import copy
 import datetime
 import sys
 
+from pulp import LpProblem, LpMinimize, LpVariable, lpSum, PULP_CBC_CMD
+
 sys.path.append('/nfs/stak/users/songchen/research/Async-LinUCB/Dataset/SimArticles')
 from Articles import ArticleManager
 from Users import UserManager
@@ -27,7 +29,7 @@ class LocalClient:
 		self.arm_selection_uploadbuffer = 0
 	
 	def matrix_dot(self, a):
-		return np.expand_dims(a, axis=1).dot(np.expand_dims(a, axis=0))
+		return np.expand_dims(a, -1).dot(np.expand_dims(a, axis=0))
 
 	def localUpdate(self, arm_featureVector):
 		self.A_local += self.matrix_dot(arm_featureVector)
@@ -47,7 +49,7 @@ class LocalClient:
 		self.b_uploadbuffer += arm_featureVector * (true_reward + np.random.randn()*self.sigma)
 		self.arm_selection_uploadbuffer = 1
 
-class LinGapE_mult:
+class UGapE_mult:
 	def __init__(self, dimension, epsilon, delta, NoiseScale,  dataset, case, gap):
 		self.dimension = dimension
 		self.epsilon = epsilon
@@ -166,6 +168,21 @@ class LinGapE_mult:
 		elif self.case == "tabular":
 			gap = self.t_reward[0] - self.t_reward[1]
 			print("Expected reward gap: ",gap)
+	
+	def get_optimal(self, y):
+		names = [str(i) for i in range(self.K)]
+		prob = LpProblem("The Whiskas Problem", LpMinimize)
+		w = LpVariable.dicts("w", names)
+		abs_w = LpVariable.dicts("abs_w", names, lowBound=0)
+		prob += lpSum([abs_w[i] for i in names])
+		for j in range(self.dimension):
+			prob += (lpSum([self.X[int(i), j] * w[i] for i in names]) == y[j])
+		for i in names:
+			prob += (abs_w[i] >= w[i])
+			prob += (abs_w[i] >= -w[i])
+		prob.solve(PULP_CBC_CMD(msg=0))
+		ratio = np.array([abs_w[i].value() for i in names])
+		return ratio
 
 	def inilization_pull(self):
 		# initialize by pulling each arm once at first
@@ -182,23 +199,22 @@ class LinGapE_mult:
 		self.est_reward = self.X.dot(self.theta_hat)
 		self.it = np.argmax(self.est_reward)
 		self.jt = np.argmax(self.est_reward - self.est_reward[self.it] +
-				np.array([self.confidence_bound(x - self.X[self.it], self.A_aggregated, self.samplecomplexity) for x in self.X]))
-		self.B = self.est_reward[self.jt] - self.est_reward[self.it] + self.confidence_bound(self.X[self.it] - self.X[self.jt], self.A_aggregated, self.samplecomplexity)
+				np.array([self.confidence_bound(x - self.X[self.it], self.A_aggregated) for x in self.X]))
+		self.B = self.est_reward[self.jt] - self.est_reward[self.it] + self.confidence_bound(self.X[self.it] - self.X[self.jt], self.A_aggregated)
 
 	def matrix_dot(self, a):
-		return np.expand_dims(a, axis=1).dot(np.expand_dims(a, axis=0))
+		return np.expand_dims(a, -1).dot(np.expand_dims(a, axis=0))
 
-	def confidence_bound(self, x, A, t):
-		L = 1
+	def confidence_bound(self, x, A):
+		det = np.linalg.det(A)
 		tmp = np.sqrt(x.dot(np.linalg.inv(A)).dot(x))
 		return tmp * (self.sigma * np.sqrt(self.dimension * 
-				     np.log(self.K * self.K * (1 + t * L * L) / self.reg / self.delta)) + 
-					 np.sqrt(self.reg) * 2)
+				     np.log(self.K * self.K * np.sqrt(det) / self.delta)) + 
+					np.sqrt(self.reg) * 2)
 
-	def decide_arm(self, y,A):
+	def decide_arm(self, ratio):
 		# select the arm 
-		tmp = [y.dot(np.linalg.inv(A + self.matrix_dot(x))).dot(y) for x in (self.X)]
-		return np.argmin(tmp)
+		return np.argmin([self.arm_selection_aggregated[i]/(ratio[i] + 1.0e-10) for i in range(self.K)])
 
 	def run(self):
 
@@ -207,6 +223,11 @@ class LinGapE_mult:
 
 		# initialize by pulling each arm once at first
 		self.inilization_pull()
+
+		self.ratio = dict()
+		for i in range(self.K):
+			for j in range(self.K):
+				self.ratio[(i, j)] = self.get_optimal(self.X[i] - self.X[j])
 
 		# startTime = datetime.datetime.now()
 		while(self.B > self.epsilon):
@@ -220,7 +241,7 @@ class LinGapE_mult:
 				self.arm_selection_downloadbuffer[currentclientID] = copy.deepcopy(self.arm_selection_aggregated)
 
 			# select target arm
-			a = self.decide_arm(self.X[self.it]- self.X[self.jt], self.A_aggregated)
+			a = self.decide_arm(self.ratio[(self.it, self.jt)])
 
 			# send the selected arm to client, update local and upload buffer
 			if self.case == 'linear':
@@ -261,8 +282,8 @@ class LinGapE_mult:
 				self.it = np.argmax(self.est_reward)
 				self.jt = np.argmax(self.est_reward - 
 									np.max(self.est_reward) + 
-									np.array([self.confidence_bound(x - self.X[self.it], self.A_aggregated, self.samplecomplexity) for x in self.X]))
-				self.B = self.est_reward[self.jt] - self.est_reward[self.it] + self.confidence_bound(self.X[self.it] - self.X[self.jt], self.A_aggregated, self.samplecomplexity)
+									np.array([self.confidence_bound(x - self.X[self.it], self.A_aggregated) for x in self.X]))
+				self.B = self.est_reward[self.jt] - self.est_reward[self.it] + self.confidence_bound(self.X[self.it] - self.X[self.jt], self.A_aggregated)
 				# self.B = np.max(self.est_reward-np.max(self.est_reward)+np.array([self.confidence_bound(x - self.X[self.it], self.A, self.samplecomplexity) for x in self.X]))
 				# print("Iteration %d"%self.samplecomplexity, " Elapsed time", datetime.datetime.now() - startTime)
 		best_arm = self.it

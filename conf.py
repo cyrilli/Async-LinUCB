@@ -4,11 +4,15 @@ Created on May 12, 2015
 import os
 
 save_LinGapE_address = "./LinGapE_Simulations"
+Singe_UGapE_address = "./Sin_UGapE_Simulations"
 sim_files_folder = "./Simulation_MAB_files"
 save_address = "./SimulationResults"
 LastFM_save_address = "./LastFMResults"
 Delicious_save_address = "./DeliciousResults"
 MovieLens_save_address = './MovieLensResults'
+save_Single_Agent = './SimSingleAgent'
+save_Tabular_Case = './SimTabular'
+save_Linear_Case = './SimLinear'
 
 save_addressResult = "./Results/Sparse"
 

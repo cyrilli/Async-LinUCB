@@ -49,10 +49,11 @@ class simulateOnlineData(object):
 
 		for alg_name, alg in algorithms.items():
 			print('starting algorithm ' + alg_name + ' on dataset ' + str(alg.dataset))
-			samplecomplexity = alg.run(self.articles)
+			samplecomplexity, arm_selection = alg.run(self.articles)
 
 		print()
 		print('Finish running, runtime: ', datetime.datetime.now() - self.startTime)
+		print('arm selection: ', arm_selection)
 		print('SampleComplexity: ',samplecomplexity)
 		
 		# Initialization
@@ -71,6 +72,7 @@ if __name__ == '__main__':
 	parser.add_argument('--N', dest='N', help='total number of clients')
 	parser.add_argument('--contextdim', type=int, help='Set dimension of context features.')
 	parser.add_argument('--Dataset', dest='Data', help='Choose dataset, 0 for articles, 1 for data setting1, 2 for data setting 2')
+	parser.add_argument('--Data_Case', dest='DC', type=str, help='Choose dataset case, linear for linear case, tabular for tabular case')
 	args = parser.parse_args()
 
 	## Environment Settings ##
@@ -97,7 +99,13 @@ if __name__ == '__main__':
 	if args.Data:
 		dataset = int(args.Data)
 	else:
-		dataset = 1
+		dataset = 2
+	
+	# set default case to linear case
+	if args.DC:
+		case = args.DC
+	else:
+		case = 'linear'
 	
 	NoiseScale = 0.1  # standard deviation of Gaussian noise
 	n_articles = 10
@@ -123,7 +131,7 @@ if __name__ == '__main__':
 
 	algorithms['testLinGapE'] = LinGapE(dimension=context_dimension, epsilon=epsilon, 
 				     					delta= delta, NoiseScale=NoiseScale, articles=articles,
-										dataset=dataset)
+										dataset=dataset, case=case, gap=1)
 
 	## Run Simulation ##
 	print("Starting")

@@ -26,6 +26,19 @@ class UserManager():
 
 		return users
 
+	def saveHomoUsers(self, users, filename):
+		with open(filename, 'w') as f:
+			for i in range(len(users)):
+				f.write(json.dumps((users[i].id, users[i].theta.tolist())) + '\n')
+	
+	def loadHomoUsers(self, filename):
+		users = []
+		with open(filename, 'r') as f:
+			for line in f:
+				uid, theta = json.loads(line)
+				users.append(User(uid, np.array(theta)))
+		return users
+
 	def simulateThetaForHeteroUsers(self, global_dim):
 		local_dim = self.dimension-global_dim
 		users = []

@@ -1,14 +1,14 @@
 import numpy as np
-import copy
-import datetime
 import sys
+from pulp import LpProblem, LpMinimize, LpVariable, lpSum, PULP_CBC_CMD
+
 sys.path.append('/nfs/stak/users/songchen/research/Async-LinUCB/Dataset/SimArticles')
 from Articles import ArticleManager
 from Users import UserManager
 from util_functions import featureUniform, gaussianFeature
 
-class LinGapE:
-	def __init__(self, dimension, epsilon, delta, NoiseScale, dataset, case, gap):
+class UGapE:
+	def __init__(self, dimension, epsilon, delta, NoiseScale,  dataset, case, gap):		
 		self.dimension = dimension
 		self.epsilon = epsilon
 		self.delta = delta
@@ -16,17 +16,15 @@ class LinGapE:
 		self.dataset = dataset
 		self.case = case
 
-		# for LinGapE computing
+		# for UGapE computing
 		self.sigma = 1.0
 		self.reg = 1
 		self.A = np.eye(self.dimension)*self.reg
 		self.b = np.zeros(self.dimension)
-		
+
 		# records
 		self.samplecomplexity = 0
-		self.totalCommCost = 0
 
-		# use the generated Articles dataset
 		if dataset == 0:
 			UM = UserManager(self.dimension, 0, thetaFunc=gaussianFeature, argv={'l2_limit': 1})
 			User_filename = '/nfs/stak/users/songchen/research/Async-LinUCB/Dataset/SimArticles/usersHomo.dat'
@@ -42,17 +40,6 @@ class LinGapE:
 			for i in range(self.K):
 				self.X[i] = articles[i].featureVector
 			# self.theta = np.zeros(self.dimension, dtype=float)
-
-		# syn dataset setting 1(corresponding to the LinGapE paper exp 7.1.1)
-		if dataset == 1 and case == 'linear':
-			self.X = np.eye(self.dimension, dtype = float)
-			tmp = np.zeros(self.dimension, dtype=float)
-			tmp[0] = np.cos(0.01)
-			tmp[1] = np.sin(0.01)
-			self.X = np.r_[self.X, np.expand_dims(tmp, axis=0)]
-			self.theta = np.zeros((self.dimension,1), dtype=float)
-			self.theta[0] = 2
-			self.K = len(self.X)
 
 
 		# syn dataset setting 2(corresponding to the LinGapE paper exp 7.1.2)
@@ -76,6 +63,7 @@ class LinGapE:
 				delta_ = 0.368 
 			self.theta[0] = delta_ 
 			self.X[0] += self.theta
+			
 
 		# syn dataset setting of tabular case
 		if dataset == 2 and case == 'tabular':
@@ -96,20 +84,13 @@ class LinGapE:
 			elif gap == 5:
 				delta_ = 0.5
 			self.t_reward[0] += delta_
-			# print(self.t_reward)
-			# exit(0)
-			
-
-		# print(self.X)
-		# exit(0)
-
+		
 		self.arm_selection = np.ones(self.K)
-	
+
 	def getReward(self, arm_vector):
-		return self.theta.dot(arm_vector)
-
-
-	def compute_true_gap(self):
+			return self.theta.dot(arm_vector)
+	
+	def comput_true_gap(self):
 		if self.case == 'linear':
 			# compute the true gap of dataset
 			reward = np.zeros(self.K,dtype=float)
@@ -121,10 +102,20 @@ class LinGapE:
 		elif self.case == "tabular":
 			gap = self.t_reward[0] - self.t_reward[1]
 			print("Expected reward gap: ",gap)
+	
+	def matrix_dot(self, a):
+		return np.expand_dims(a, -1).dot(np.expand_dims(a, axis=0))
 
+	def confidence_bound(self, x, A):
+		det = np.linalg.det(A)
+		tmp = np.sqrt(x.dot(np.linalg.inv(A)).dot(x))
+		return tmp * (self.sigma * np.sqrt(self.dimension * 
+				     np.log(self.K * self.K * np.sqrt(det) / self.delta)) + 
+					np.sqrt(self.reg) * 2)
 
 	def inilization_pull(self):
-		# initialize by pulling each arm once at first
+		self.samplecomplexity = self.K
+
 		for i in range(self.K):
 			self.A += self.matrix_dot(self.X[i])
 			if self.case == 'linear':
@@ -132,45 +123,50 @@ class LinGapE:
 			if self.case == 'tabular':
 				r = (self.t_reward[i] + np.random.randn() * self.sigma)
 			self.b += self.X[i]*r
-		
-		# Select-direction after initializing
+
+		# Selection-direction after initializing
 		self.theta_hat = np.linalg.solve(self.A, self.b)
 		self.est_reward = self.X.dot(self.theta_hat)
 		self.it = np.argmax(self.est_reward)
 		self.jt = np.argmax(self.est_reward - self.est_reward[self.it] +
-				np.array([self.confidence_bound(x - self.X[self.it], self.A, self.samplecomplexity) for x in self.X]))
-		self.B = self.est_reward[self.jt] - self.est_reward[self.it] + self.confidence_bound(self.X[self.it] - self.X[self.jt], self.A, self.samplecomplexity)
+							np.array([self.confidence_bound(x - self.X[self.it], self.A) for x in self.X]))
+		self.B = self.est_reward[self.jt] - self.est_reward[self.it] + self.confidence_bound(self.X[self.it] - self.X[self.jt], self.A)
 
-	def matrix_dot(self, a):
-		return np.expand_dims(a, axis=1).dot(np.expand_dims(a, axis=0))
-
-
-	def confidence_bound(self, x, A, t):
-		L = 1
-		tmp = np.sqrt(x.dot(np.linalg.inv(A)).dot(x))
-		return tmp * (self.sigma * np.sqrt(self.dimension * 
-				     np.log(self.K * self.K * (1 + t * L * L) / self.reg / self.delta)) + 
-					 np.sqrt(self.reg) * 2)
-
-	def decide_arm(self, y,A):
-		# select the arm 
-		tmp = [y.dot(np.linalg.inv(A + self.matrix_dot(x))).dot(y) for x in (self.X)]
-		return np.argmin(tmp)
+	def get_optimal(self, y):
+		names = [str(i) for i in range(self.K)]
+		prob = LpProblem("The Whiskas Problem", LpMinimize)
+		w = LpVariable.dicts("w", names)
+		abs_w = LpVariable.dicts("abs_w", names, lowBound=0)
+		prob += lpSum([abs_w[i] for i in names])
+		for j in range(self.dimension):
+			prob += (lpSum([self.X[int(i), j] * w[i] for i in names]) == y[j])
+		for i in names:
+			prob += (abs_w[i] >= w[i])
+			prob += (abs_w[i] >= -w[i])
+		prob.solve(PULP_CBC_CMD(msg=0))
+		ratio = np.array([abs_w[i].value() for i in names])
+		return ratio
+	
+	def decide_arm(self, ratio):
+		return np.argmin([self.arm_selection[i]/(ratio[i] + 1.0e-10) for i in range(self.K)])
 
 	def run(self):
 
-		# compute the true gap first
-		self.compute_true_gap()
+		# comput the true gap first
+		self.comput_true_gap()
 
-		# initialize by pulling each arm once at first
+		self.ratio = dict()
+		for i in range(self.K):
+			for j in range(self.K):
+				self.ratio[(i, j)] = self.get_optimal(self.X[i] - self.X[j])
+
+		# initialize by pulling each arm once at first 
 		self.inilization_pull()
-
-		# startTime = datetime.datetime.now()
+			
 		while(self.B > self.epsilon):
-			# select target arm
-			a = self.decide_arm(self.X[self.it]- self.X[self.jt], self.A)
+			a = self.decide_arm(self.ratio[(self.it, self.jt)])
 
-			# Update At and bt--
+			# Update At and bt --
 			self.A += self.matrix_dot(self.X[a])
 			if self.case == 'linear':
 				self.b += self.X[a] * (self.theta.dot(self.X[a]) + np.random.randn()*self.sigma)
@@ -187,18 +183,13 @@ class LinGapE:
 				print("E:", self.epsilon)
 				print()
 
-			
-			# Select_direction
+			# select_direction
 			self.theta_hat = np.linalg.solve(self.A, self.b)
 			self.est_reward = self.X.dot(self.theta_hat)
 			self.it = np.argmax(self.est_reward)
-			self.jt = np.argmax(self.est_reward - 
-								np.max(self.est_reward) + 
-								np.array([self.confidence_bound(x - self.X[self.it], self.A, self.samplecomplexity) for x in self.X]))
-			self.B = self.est_reward[self.jt] - self.est_reward[self.it] + self.confidence_bound(self.X[self.it] - self.X[self.jt], self.A, self.samplecomplexity)
-			# self.B = np.max(self.est_reward-np.max(self.est_reward)+np.array([self.confidence_bound(x - self.X[self.it], self.A, self.samplecomplexity) for x in self.X]))
-			# print("Iteration %d"%self.samplecomplexity, " Elapsed time", datetime.datetime.now() - startTime)
-
+			self.jt = np.argmax(self.est_reward - np.max(self.est_reward) +
+					np.array([self.confidence_bound(x - self.X[self.it], self.A) for x in self.X]))
+			self.B = self.est_reward[self.jt] - self.est_reward[self.it] + self.confidence_bound(self.X[self.it] - self.X[self.jt], self.A)
 		best_arm = self.it
-		return self.samplecomplexity, self.arm_selection, best_arm, 0
 
+		return self.samplecomplexity, self.arm_selection, best_arm, 0
