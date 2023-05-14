@@ -28,3 +28,12 @@ python SimHomogeneousClientsLinGapE.py
 Experiment results can be found in "./LinGapE_Simulations" folder, which contains:
 - "AccCommCost\_[startTime].csv": communication cost at each iteration for each algorithm
 - "SampleComplex\_[startTime].csv": number of samples required to estimate the best for each algorithm
+
+Updates：5/14/2023
+
+Find linear case result in SimLinear.py
+Find Tabular case result in SimTabular.py
+For the connection setting: 100 iterations per connection
+
+to run the code: python SimLinear.py  
+				 python SimTabular.py
