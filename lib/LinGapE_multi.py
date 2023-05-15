@@ -19,33 +19,33 @@ class LocalClient:
 		# latest local sufficient statistics
 		self.A_local = np.zeros((self.d, self.d))  #lambda_ * np.identity(n=self.d)
 		self.b_local = np.zeros(self.d)
-		self.arm_selection_local = 0
+		self.arm_selection_local = np.zeros(self.d)
 
 		# aggregated sufficient statistics recently downloaded
 		self.A_uploadbuffer = np.zeros((self.d, self.d))
 		self.b_uploadbuffer = np.zeros(self.d)
-		self.arm_selection_uploadbuffer = 0
+		self.arm_selection_uploadbuffer = np.zeros(self.d)
 	
 	def matrix_dot(self, a):
 		return np.expand_dims(a, axis=1).dot(np.expand_dims(a, axis=0))
 
-	def localUpdate(self, arm_featureVector):
+	def localUpdate(self, arm_featureVector, a):
 		self.A_local += self.matrix_dot(arm_featureVector)
 		self.b_local += arm_featureVector * (self.theta.dot(arm_featureVector) + np.random.randn()*self.sigma)
-		self.arm_selection_local = 1
+		self.arm_selection_local[a] += 1
 
 		self.A_uploadbuffer += self.matrix_dot(arm_featureVector)
 		self.b_uploadbuffer += arm_featureVector * (self.theta.dot(arm_featureVector) + np.random.randn()*self.sigma)
-		self.arm_selection_uploadbuffer = 1
+		self.arm_selection_uploadbuffer[a] += 1
 	
-	def localUpdate_tabular(self, arm_featureVector, true_reward):
+	def localUpdate_tabular(self, arm_featureVector, true_reward, a):
 		self.A_local += self.matrix_dot(arm_featureVector)
 		self.b_local += arm_featureVector * (true_reward + np.random.randn()*self.sigma)
-		self.arm_selection_local = 1
+		self.arm_selection_local[a] += 1
 
 		self.A_uploadbuffer += self.matrix_dot(arm_featureVector)
 		self.b_uploadbuffer += arm_featureVector * (true_reward + np.random.randn()*self.sigma)
-		self.arm_selection_uploadbuffer = 1
+		self.arm_selection_uploadbuffer[a] += 1
 
 class LinGapE_mult:
 	def __init__(self, dimension, epsilon, delta, NoiseScale,  dataset, case, gap):
@@ -70,8 +70,8 @@ class LinGapE_mult:
 			# For the homogeneous case:
 			self.theta = users[0].theta
 
-			AM = ArticleManager(self.dimension, 5, argv={'l2_limit': 1}, theta=self.theta)
-			Article_filename = '/nfs/stak/users/songchen/research/Async-LinUCB/Dataset/SimArticles/ArticlesForHomo_' + str(gap/10) + '_' + str(5) + '.dat'
+			AM = ArticleManager(self.dimension, self.dimension, argv={'l2_limit': 1}, theta=self.theta)
+			Article_filename = '/nfs/stak/users/songchen/research/Async-LinUCB/Dataset/SimArticles/ArticlesForHomo_' + str(gap/10) + '_' + str(self.dimension) + '.dat'
 			articles = AM.loadArticles(Article_filename)
 			self.X = np.zeros((len(articles), self.dimension), dtype=float)
 			self.K = len(articles)
@@ -92,8 +92,8 @@ class LinGapE_mult:
 
 		# syn dataset setting 2(corresponding to the LinGapE paper exp 7.1.2)
 		if dataset == 2 and case == 'linear':
-			self.K = 5
-			self.dimension = 5
+			self.dimension = dimension
+			self.K = self.dimension
 			self.X = np.eye(self.dimension, dtype=float)
 			self.theta = np.zeros(self.dimension, dtype = float)
 			# hyperparameters to control the true reward gap:
@@ -114,8 +114,8 @@ class LinGapE_mult:
 		
 		# syn dataset setting of tabular case
 		if dataset == 2 and case == 'tabular':
-			self.K = 5
-			self.dimension = 5
+			self.dimension = dimension
+			self.K = self.dimension
 			self.X = np.eye(self.dimension, dtype=float)
 			self.theta = np.zeros(self.dimension, dtype = float)
 			# self.theta = np.array([0.2, 0.4, 0.6, 0.8, 0.9])
@@ -184,6 +184,10 @@ class LinGapE_mult:
 		self.jt = np.argmax(self.est_reward - self.est_reward[self.it] +
 				np.array([self.confidence_bound(x - self.X[self.it], self.A_aggregated, self.samplecomplexity) for x in self.X]))
 		self.B = self.est_reward[self.jt] - self.est_reward[self.it] + self.confidence_bound(self.X[self.it] - self.X[self.jt], self.A_aggregated, self.samplecomplexity)
+		print(self.est_reward[self.jt])
+		print(self.est_reward[self.it])
+		print(self.confidence_bound(self.X[self.it] - self.X[self.jt], self.A_aggregated, self.samplecomplexity))
+		exit(0)
 
 	def matrix_dot(self, a):
 		return np.expand_dims(a, axis=1).dot(np.expand_dims(a, axis=0))
@@ -224,28 +228,39 @@ class LinGapE_mult:
 
 			# send the selected arm to client, update local and upload buffer
 			if self.case == 'linear':
-				self.clients[currentclientID].localUpdate(self.X[a])
+				self.clients[currentclientID].localUpdate(self.X[a], a)
 			elif self.case == 'tabular':
-				self.clients[currentclientID].localUpdate_tabular(self.X[a], self.t_reward[a])
+				self.clients[currentclientID].localUpdate_tabular(self.X[a], self.t_reward[a], a)
 			
 			self.samplecomplexity += 1
 
-			if self.samplecomplexity % 100 == 0:
+			if self.samplecomplexity % 500 == 0:
 				self.totalCommCost += 1
 				# update server's aggregated
 				self.A_aggregated += self.clients[currentclientID].A_uploadbuffer
 				self.b_aggregated += self.clients[currentclientID].b_uploadbuffer
-				self.arm_selection_aggregated[a] += self.clients[currentclientID].arm_selection_uploadbuffer
+				self.arm_selection_aggregated += self.clients[currentclientID].arm_selection_uploadbuffer
 				# update server's download buffer for other clients
 				for clientID in self.A_downloadbuffer.keys():
 					if clientID != currentclientID:
 						self.A_downloadbuffer[clientID] += self.clients[currentclientID].A_uploadbuffer
 						self.b_downloadbuffer[clientID] += self.clients[currentclientID].b_uploadbuffer
-						self.arm_selection_downloadbuffer[clientID][a] += self.clients[currentclientID].arm_selection_uploadbuffer
+						self.arm_selection_downloadbuffer[clientID] += self.clients[currentclientID].arm_selection_uploadbuffer
 				# clear client's upload buffer
 				self.clients[currentclientID].A_uploadbuffer = np.zeros((self.dimension, self.dimension))
 				self.clients[currentclientID].b_uploadbuffer = np.zeros(self.dimension)
-				self.clients[currentclientID].arm_selection_local = 0
+				self.clients[currentclientID].arm_selection_uploadbuffer = np.zeros(self.dimension)
+
+				# other agents download the update
+				for clientID, client in self.clients.items():
+					self.totalCommCost += 1
+					client.A_local += self.A_downloadbuffer[clientID]
+					client.b_local += self.b_downloadbuffer[clientID]
+					client.arm_selection_local += self.arm_selection_downloadbuffer[clientID]
+
+					self.A_downloadbuffer[clientID] = np.zeros((self.dimension, self.dimension))
+					self.b_downloadbuffer[clientID] = np.zeros(self.dimension)
+					self.arm_selection_downloadbuffer[clientID] = np.zeros(self.K)
 
 				if self.samplecomplexity%5000 == 0:
 					print("T:", self.samplecomplexity)

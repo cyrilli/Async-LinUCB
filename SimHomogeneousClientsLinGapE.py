@@ -11,7 +11,7 @@ from conf import sim_files_folder, save_address, save_LinGapE_address
 from util_functions import featureUniform, gaussianFeature
 
 
-from lib.LinGapE_multi import LinGapE
+from lib.LinGapE_multi import LinGapE_mult
 
 class simulateOnlineData(object):
 	def __init__(self, context_dimension, plot, 
@@ -175,19 +175,19 @@ if __name__ == '__main__':
 	# 			     					delta= delta, NoiseScale=NoiseScale, articles=articles,
 	# 									dataset=dataset)
 	
-	algorithms['gap=.1_data0_lin'] = LinGapE(dimension=5, epsilon=epsilon, 
+	algorithms['gap=.1_data0_lin'] = LinGapE_mult(dimension=5, epsilon=epsilon, 
 							delta= delta, NoiseScale=NoiseScale, 
 							dataset=0, case='linear', gap=1)
-	algorithms['gap=.2_data0_lin'] = LinGapE(dimension=5, epsilon=epsilon, 
+	algorithms['gap=.2_data0_lin'] = LinGapE_mult(dimension=5, epsilon=epsilon, 
 							delta= delta, NoiseScale=NoiseScale, 
 							dataset=0, case='linear', gap=2)
-	algorithms['gap=.3_data0_lin'] = LinGapE(dimension=5, epsilon=epsilon, 
+	algorithms['gap=.3_data0_lin'] = LinGapE_mult(dimension=5, epsilon=epsilon, 
 							delta= delta, NoiseScale=NoiseScale, 
 							dataset=0, case='linear', gap=3)
-	algorithms['gap=.4_data0_lin'] = LinGapE(dimension=5, epsilon=epsilon, 
+	algorithms['gap=.4_data0_lin'] = LinGapE_mult(dimension=5, epsilon=epsilon, 
 							delta= delta, NoiseScale=NoiseScale, 
 							dataset=0, case='linear', gap=4)
-	algorithms['gap=.5_data0_lin'] = LinGapE(dimension=5, epsilon=epsilon, 
+	algorithms['gap=.5_data0_lin'] = LinGapE_mult(dimension=5, epsilon=epsilon, 
 							delta= delta, NoiseScale=NoiseScale, 
 							dataset=0, case='linear', gap=5)
 	
