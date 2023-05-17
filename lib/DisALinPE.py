@@ -67,9 +67,9 @@ class LocalClient:
 		self.localupdate(r, arm_pull)
 
 	def uploadCommTrigger(self):
-		print(self.arm_selection_local)
-		print(self.arm_selection_uploadbuffer)
-		print()
+		# print(self.arm_selection_local)
+		# print(self.arm_selection_uploadbuffer)
+		# print()
 		trigger1 = np.linalg.det((self.V_local + self.V_uploadbuffer)) > (1+self.gamma1)*np.linalg.det(self.V_local)
 		trigger2 = np.sum(self.arm_selection_local) + np.sum(self.arm_selection_uploadbuffer) > (1+self.gamma2)*np.sum(self.arm_selection_local)
 		
@@ -89,7 +89,6 @@ class DisALinPE:
 		self.gamma1 = gamma1
 		self.gamma2 = gamma2
 
-		# self.sigma = 1.0
 
 		# use the generated Articles dataset
 		if dataset == 0:
@@ -198,9 +197,9 @@ class DisALinPE:
 		for i in range(1000000):
 
 			self.sampleComplexity += 1
-			print(self.sampleComplexity)
-			if (self.sampleComplexity == 100):
-				exit(0)
+			# print(self.sampleComplexity)
+			# if (self.sampleComplexity == 100):
+			# 	exit(0)
 			# print(self.sampleComplexity)
 			# print(self.arm_selection_aggregated)
 			# print()

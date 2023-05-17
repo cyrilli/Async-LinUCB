@@ -209,7 +209,7 @@ class simulateOnlineData(object):
 			axa[1].set_xlabel("Expected Reward Gap")
 			axa[1].set_ylabel("Communication Cost")
 			axa[1].legend(loc='upper right')
-			plt.savefig(os.path.join(save_Linear_Case, "SamConAndCommCost_dataset" + self.dataset + str(timeRun) + '.png'), dpi=300, bbox_inches='tight', pad_inches=0.0)
+			plt.savefig(os.path.join(save_Linear_Case, "SamConAndCommCost_dataset" + self.dataset + str(timeRun) + '.pdf'), dpi=300, bbox_inches='tight', pad_inches=0.0)
 			plt.show()
 
 		
@@ -256,7 +256,7 @@ if __name__ == '__main__':
 	else:
 		case = 'linear'
 	
-	NoiseScale = 1  # standard deviation of Gaussian noise
+	NoiseScale = 0.3  # standard deviation of Gaussian noise
 	n_articles = 5
 	poolArticleSize = 25
 
@@ -279,15 +279,29 @@ if __name__ == '__main__':
 	# tmp = (np.sqrt(1+gamma1*n_users)+np.sqrt(2*gamma1)*n_users)
 	# reg = NoiseScale*NoiseScale*tmp*tmp*np.log(2/0.05)
 
-	gamma1 = 0.01
-	gamma2 = 0.001
+	# gamma1 = 0.01
+	# gamma2 = 0.005
 	# tmp = (np.sqrt(1+gamma1*n_users)+np.sqrt(2*gamma1)*n_users)
 	# reg = NoiseScale*NoiseScale*tmp*tmp*np.log(2/0.05)
-	reg = 1
+	# reg = 10wdad
+
+	# noise = 1
+	# gamma1 = 0.005
+	# gamma2 = 0.001
+	# # tmp = (np.sqrt(1+gamma1*n_users)+np.sqrt(2*gamma1)*n_users)
+	# # reg = NoiseScale*NoiseScale*tmp*tmp*np.log(2/0.05)
+	# reg = 5
+
+	# noise = 0.3
+	gamma1 = 0.04
+	# gamma2 = 1/(np.sqrt(n_users*n_users*n_users)*5)
+	gamma2 = 0.1
+	tmp = (np.sqrt(1+gamma1*n_users)+np.sqrt(2*gamma1)*n_users)
+	reg = NoiseScale*NoiseScale*tmp*tmp*np.log(2/0.05)
 
 	# print(gamma1)
 	# print(gamma2)
-	# print(reg)
+	print(reg)
 	# exit(0)
 
 	## Initiate Bandit Algorithms ##
@@ -392,37 +406,37 @@ if __name__ == '__main__':
 		# 						delta= delta, NoiseScale=NoiseScale, 
 		# 						dataset=2, case='linear', gap=5)
 		
-		# algorithms['gap=.1_data2_Hom_L'] = LinGapE_mult(dimension=5, epsilon=epsilon, 
-		# 						delta= delta, NoiseScale=NoiseScale, 
-		# 						dataset=2, case='linear', gap=1)
-		# algorithms['gap=.2_data2_Hom_L'] = LinGapE_mult(dimension=5, epsilon=epsilon, 
-		# 						delta= delta, NoiseScale=NoiseScale, 
-		# 						dataset=2, case='linear', gap=2)
-		# algorithms['gap=.3_data2_Hom_L'] = LinGapE_mult(dimension=5, epsilon=epsilon, 
-		# 						delta= delta, NoiseScale=NoiseScale, 
-		# 						dataset=2, case='linear', gap=3)
-		# algorithms['gap=.4_data2_Hom_L'] = LinGapE_mult(dimension=5, epsilon=epsilon, 
-		# 						delta= delta, NoiseScale=NoiseScale, 
-		# 						dataset=2, case='linear', gap=4)
-		# algorithms['gap=.5_data2_Hom_L'] = LinGapE_mult(dimension=5, epsilon=epsilon, 
-		# 						delta= delta, NoiseScale=NoiseScale, 
-		# 						dataset=2, case='linear', gap=5)
+		algorithms['gap=.1_data2_Hom_L'] = LinGapE_mult(dimension=5, epsilon=epsilon, 
+								delta= delta, NoiseScale=NoiseScale, 
+								dataset=2, case='linear', gap=1)
+		algorithms['gap=.2_data2_Hom_L'] = LinGapE_mult(dimension=5, epsilon=epsilon, 
+								delta= delta, NoiseScale=NoiseScale, 
+								dataset=2, case='linear', gap=2)
+		algorithms['gap=.3_data2_Hom_L'] = LinGapE_mult(dimension=5, epsilon=epsilon, 
+								delta= delta, NoiseScale=NoiseScale, 
+								dataset=2, case='linear', gap=3)
+		algorithms['gap=.4_data2_Hom_L'] = LinGapE_mult(dimension=5, epsilon=epsilon, 
+								delta= delta, NoiseScale=NoiseScale, 
+								dataset=2, case='linear', gap=4)
+		algorithms['gap=.5_data2_Hom_L'] = LinGapE_mult(dimension=5, epsilon=epsilon, 
+								delta= delta, NoiseScale=NoiseScale, 
+								dataset=2, case='linear', gap=5)
 		
-		# algorithms['gap=.1_data2_Hom_U'] = LinGapE_full(dimension=5, epsilon=epsilon, 
-		# 						delta= delta, NoiseScale=NoiseScale, 
-		# 						dataset=2, case='linear', gap=1)
-		# algorithms['gap=.2_data2_Hom_U'] = LinGapE_full(dimension=5, epsilon=epsilon, 
-		# 						delta= delta, NoiseScale=NoiseScale, 
-		# 						dataset=2, case='linear', gap=2)
-		# algorithms['gap=.3_data2_Hom_U'] = LinGapE_full(dimension=5, epsilon=epsilon, 
-		# 						delta= delta, NoiseScale=NoiseScale, 
-		# 						dataset=2, case='linear', gap=3)
-		# algorithms['gap=.4_data2_Hom_U'] = LinGapE_full(dimension=5, epsilon=epsilon, 
-		# 						delta= delta, NoiseScale=NoiseScale, 
-		# 						dataset=2, case='linear', gap=4)
-		# algorithms['gap=.5_data2_Hom_U'] = LinGapE_full(dimension=5, epsilon=epsilon, 
-		# 						delta= delta, NoiseScale=NoiseScale, 
-		# 						dataset=2, case='linear', gap=5)
+		algorithms['gap=.1_data2_Hom_U'] = LinGapE_full(dimension=5, epsilon=epsilon, 
+								delta= delta, NoiseScale=NoiseScale, 
+								dataset=2, case='linear', gap=1)
+		algorithms['gap=.2_data2_Hom_U'] = LinGapE_full(dimension=5, epsilon=epsilon, 
+								delta= delta, NoiseScale=NoiseScale, 
+								dataset=2, case='linear', gap=2)
+		algorithms['gap=.3_data2_Hom_U'] = LinGapE_full(dimension=5, epsilon=epsilon, 
+								delta= delta, NoiseScale=NoiseScale, 
+								dataset=2, case='linear', gap=3)
+		algorithms['gap=.4_data2_Hom_U'] = LinGapE_full(dimension=5, epsilon=epsilon, 
+								delta= delta, NoiseScale=NoiseScale, 
+								dataset=2, case='linear', gap=4)
+		algorithms['gap=.5_data2_Hom_U'] = LinGapE_full(dimension=5, epsilon=epsilon, 
+								delta= delta, NoiseScale=NoiseScale, 
+								dataset=2, case='linear', gap=5)
 		
 		algorithms['gap=.1_data2_Hom_D'] = DisALinPE(dimension=5, epsilon=epsilon, 
 								delta= delta, NoiseScale=NoiseScale, 

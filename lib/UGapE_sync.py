@@ -251,7 +251,7 @@ class UGapE_mult:
 			
 			self.samplecomplexity += 1
 
-			if self.samplecomplexity % 500 == 0:
+			if self.samplecomplexity % 100 == 0:
 				self.totalCommCost += 1
 				# update server's aggregated
 				self.A_aggregated += self.clients[currentclientID].A_uploadbuffer
