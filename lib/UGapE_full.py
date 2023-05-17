@@ -252,7 +252,7 @@ class UGapE_full:
 			self.samplecomplexity += 1
 
 			if self.samplecomplexity % 1 == 0:
-				self.totalCommCost += 2
+				self.totalCommCost += 1
 				# update server's aggregated
 				self.A_aggregated += self.clients[currentclientID].A_uploadbuffer
 				self.b_aggregated += self.clients[currentclientID].b_uploadbuffer
@@ -270,7 +270,7 @@ class UGapE_full:
 
 				# other agents download the update
 				for clientID, client in self.clients.items():
-					# self.totalCommCost += 1 
+					self.totalCommCost += 1 
 					client.A_local += self.A_downloadbuffer[clientID]
 					client.b_local += self.b_downloadbuffer[clientID]
 					client.arm_selection_local += self.arm_selection_downloadbuffer[clientID]

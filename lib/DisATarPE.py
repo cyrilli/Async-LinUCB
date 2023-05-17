@@ -268,6 +268,24 @@ class DisTarPE:
 		# print(self.confidence_bound(self.it, self.gamma))
 		# print(self.confidence_bound(self.jt, self.gamma))
 		
+		self.it = np.argmax(self.est_reward_aggregated)
+		self.jt = np.argmax(self.est_reward_aggregated - 
+							self.est_reward_aggregated[self.it] + 
+							np.array([self.confidence_bound(x, self.gamma) + self.confidence_bound(self.it, self.gamma) for x in range(self.K)]))
+		if (self.jt == self.it):
+			self.jt = np.argsort(self.est_reward_aggregated - 
+								self.est_reward_aggregated[self.it] + 
+								np.array([self.confidence_bound(x, self.gamma) + self.confidence_bound(self.it, self.gamma) for x in range(self.K)]))[-2]
+				
+				# print("it, jt: ",self.it, self.jt)
+				# print("est_reward_server:", self.est_reward_aggregated)
+				# print("CB it: ", self.confidence_bound(self.it, self.gamma))
+				# print("CB jt: ", self.confidence_bound(self.jt, self.gamma))
+
+
+		self.B = self.est_reward_aggregated[self.jt] - self.est_reward_aggregated[self.it] + self.confidence_bound(self.it, self.gamma) + self.confidence_bound(self.jt, self.gamma)
+
+
 		# exit(0)
 		t = self.K
 		# print(self.est_reward_aggregated)

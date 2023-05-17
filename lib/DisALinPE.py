@@ -20,6 +20,9 @@ class LocalClient:
 		self.gamma2 = gamma2
 		self.n_clients = n_clients
 
+		self.test1 = 0
+		self.test2 = 0
+
 
 		self.V_local = np.zeros((self.d, self.d))
 		self.b_local = np.zeros(self.K)
@@ -64,8 +67,12 @@ class LocalClient:
 		self.localupdate(r, arm_pull)
 
 	def uploadCommTrigger(self):
+		print(self.arm_selection_local)
+		print(self.arm_selection_uploadbuffer)
+		print()
 		trigger1 = np.linalg.det((self.V_local + self.V_uploadbuffer)) > (1+self.gamma1)*np.linalg.det(self.V_local)
 		trigger2 = np.sum(self.arm_selection_local) + np.sum(self.arm_selection_uploadbuffer) > (1+self.gamma2)*np.sum(self.arm_selection_local)
+		
 		return (trigger1 or trigger2)
 
 class DisALinPE:
@@ -191,8 +198,9 @@ class DisALinPE:
 		for i in range(1000000):
 
 			self.sampleComplexity += 1
-			# if (self.sampleComplexity == 100):
-			# 	exit(0)
+			print(self.sampleComplexity)
+			if (self.sampleComplexity == 100):
+				exit(0)
 			# print(self.sampleComplexity)
 			# print(self.arm_selection_aggregated)
 			# print()

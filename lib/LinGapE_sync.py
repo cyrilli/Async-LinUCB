@@ -10,14 +10,10 @@ from Users import UserManager
 from util_functions import featureUniform, gaussianFeature
 
 class LocalClient:
-	def __init__(self, featureDimension, theta, sigma, X, reg, delta):
+	def __init__(self, featureDimension, theta, sigma):
 		self.d = featureDimension
 		self.theta = theta
 		self.sigma = sigma
-		self.X = X
-		self.K = len(self.X)
-		self.reg = reg
-		self.delta = delta
 
 		# Sufficient statistics stored on the client #
 		# latest local sufficient statistics
@@ -32,28 +28,6 @@ class LocalClient:
 	
 	def matrix_dot(self, a):
 		return np.expand_dims(a, axis=1).dot(np.expand_dims(a, axis=0))
-	
-	def confidence_bound(self, x, A, t):
-		L = 1
-		tmp = np.sqrt(x.dot(np.linalg.inv(A)).dot(x))
-		return tmp * (self.sigma * np.sqrt(self.d * 
-				     np.log(self.K * self.K * (1 + t * L * L) / self.reg / self.delta)) + 
-					 np.sqrt(self.reg) * 2)
-
-
-	def decide_arm(self):
-		self.theta_hat = np.linalg.solve(self.A_local, self.b_local)
-		self.est_reward = self.X.dot(self.theta_hat)
-		self.it = np.argmax(self.est_reward)
-		self.jt = np.argmax(self.est_reward - self.est_reward[self.it] +
-				np.array([self.confidence_bound(x - self.X[self.it], self.A_local, np.sum(self.arm_selection_local)) for x in self.X]))
-		
-		y = self.X[self.it]- self.X[self.jt]
-		tmp = [y.dot(np.linalg.inv(self.A_local + self.matrix_dot(x))).dot(y) for x in (self.X)]
-		a = np.argmin(tmp)
-		self.localUpdate(self.X[a],a)
-
-
 
 	def localUpdate(self, arm_featureVector, a):
 		r = (self.theta.dot(arm_featureVector) + np.random.randn()*self.sigma)
@@ -81,7 +55,7 @@ class LinGapE_mult:
 		self.delta = delta
 		self.NoiseScale = NoiseScale
 		self.dataset = dataset
-		self.case = 'linear'
+		self.case = case
 
 		# for LinGapE computing
 		self.sigma = 1.0
@@ -170,6 +144,10 @@ class LinGapE_mult:
 		self.A_aggregated = np.eye(self.dimension)*self.reg
 		self.b_aggregated = np.zeros(self.dimension)
 		self.arm_selection_aggregated = np.ones(self.K) # for inilization, all arm got pulled once
+		# aggregated sufficient statistics that haven't been sent to each client
+		self.A_downloadbuffer = {}
+		self.b_downloadbuffer = {}
+		self.arm_selection_downloadbuffer = {}
 
 		# print(self.X)
 		# exit(0)
@@ -178,35 +156,35 @@ class LinGapE_mult:
 		return self.theta.dot(arm_vector)
 
 	def compute_true_gap(self):
-		# compute the true gap of dataset
-		reward = np.zeros(self.K,dtype=float)
-		for i in range(self.K):
-			reward[i] = self.getReward(self.X[i])
-		reward = np.sort(reward)
-		gap = reward[self.K-1] - reward[self.K-2]
-		print("Expected reward gap: ",gap)
+		if self.case == 'linear':
+			# compute the true gap of dataset
+			reward = np.zeros(self.K,dtype=float)
+			for i in range(self.K):
+				reward[i] = self.getReward(self.X[i])
+			reward = np.sort(reward)
+			gap = reward[self.K-1] - reward[self.K-2]
+			print("Expected reward gap: ",gap)
+		elif self.case == "tabular":
+			gap = self.t_reward[0] - self.t_reward[1]
+			print("Expected reward gap: ",gap)
 
 	def inilization_pull(self):
 		# initialize by pulling each arm once at first
 		for i in range(self.K):
 			self.A_aggregated += self.matrix_dot(self.X[i])
-			r = (self.theta.dot(self.X[i]) + np.random.randn() * self.sigma)
+			if self.case == 'linear':
+				r = (self.theta.dot(self.X[i]) + np.random.randn() * self.sigma)
+			if self.case == 'tabular':
+				r = (self.t_reward[i] + np.random.randn() * self.sigma)
 			self.b_aggregated += self.X[i]*r
 		
-		for currentclientID in range(10):
-			self.clients[currentclientID] = LocalClient(self.dimension, self.theta, self.sigma, self.X, self.reg, self.delta)
-			self.clients[currentclientID].A_local = copy.deepcopy(self.A_aggregated)
-			self.clients[currentclientID].b_local = copy.deepcopy(self.b_aggregated)
-			self.clients[currentclientID].arm_selection_local = copy.deepcopy(self.arm_selection_aggregated)
-
-
 		# Select-direction after initializing
 		self.theta_hat = np.linalg.solve(self.A_aggregated, self.b_aggregated)
 		self.est_reward = self.X.dot(self.theta_hat)
 		self.it = np.argmax(self.est_reward)
 		self.jt = np.argmax(self.est_reward - self.est_reward[self.it] +
-				np.array([self.confidence_bound(x - self.X[self.it], self.A_aggregated, np.sum(self.arm_selection_aggregated)) for x in self.X]))
-		self.B = self.est_reward[self.jt] - self.est_reward[self.it] + self.confidence_bound(self.X[self.it] - self.X[self.jt], self.A_aggregated, np.sum(self.arm_selection_aggregated))
+				np.array([self.confidence_bound(x - self.X[self.it], self.A_aggregated, self.samplecomplexity) for x in self.X]))
+		self.B = self.est_reward[self.jt] - self.est_reward[self.it] + self.confidence_bound(self.X[self.it] - self.X[self.jt], self.A_aggregated, self.samplecomplexity)
 		# print(self.est_reward[self.jt])
 		# print(self.est_reward[self.it])
 		# print(self.confidence_bound(self.X[self.it] - self.X[self.jt], self.A_aggregated, self.samplecomplexity))
@@ -239,13 +217,21 @@ class LinGapE_mult:
 		while(self.B > self.epsilon):
 
 			# assume have 10 users(clients)
-			currentclientID = random.randint(0,9)
+			currentclientID = random.randint(1, 10)
+			if currentclientID not in self.clients:
+				self.clients[currentclientID] = LocalClient(self.dimension, self.theta, self.sigma)
+				self.A_downloadbuffer[currentclientID] = copy.deepcopy(self.A_aggregated)
+				self.b_downloadbuffer[currentclientID] = copy.deepcopy(self.b_aggregated)
+				self.arm_selection_downloadbuffer[currentclientID] = copy.deepcopy(self.arm_selection_aggregated)
 
 			# select target arm
-			# a = self.decide_arm(self.X[self.it]- self.X[self.jt], self.A_aggregated)
+			a = self.decide_arm(self.X[self.it]- self.X[self.jt], self.A_aggregated)
 
 			# send the selected arm to client, update local and upload buffer
-			self.clients[currentclientID].decide_arm()
+			if self.case == 'linear':
+				self.clients[currentclientID].localUpdate(self.X[a], a)
+			elif self.case == 'tabular':
+				self.clients[currentclientID].localUpdate_tabular(self.X[a], self.t_reward[a], a)
 			
 			self.samplecomplexity += 1
 
@@ -258,12 +244,33 @@ class LinGapE_mult:
 				print()
 
 
-			if self.samplecomplexity % 5 == 0:
-				self.totalCommCost += 2
+			if self.samplecomplexity % 500 == 0:
+				self.totalCommCost += 1
 				# update server's aggregated
 				self.A_aggregated += self.clients[currentclientID].A_uploadbuffer
 				self.b_aggregated += self.clients[currentclientID].b_uploadbuffer
 				self.arm_selection_aggregated += self.clients[currentclientID].arm_selection_uploadbuffer
+				# update server's download buffer for other clients
+				for clientID in self.A_downloadbuffer.keys():
+					if clientID != currentclientID:
+						self.A_downloadbuffer[clientID] += self.clients[currentclientID].A_uploadbuffer
+						self.b_downloadbuffer[clientID] += self.clients[currentclientID].b_uploadbuffer
+						self.arm_selection_downloadbuffer[clientID] += self.clients[currentclientID].arm_selection_uploadbuffer
+				# clear client's upload buffer
+				self.clients[currentclientID].A_uploadbuffer = np.zeros((self.dimension, self.dimension))
+				self.clients[currentclientID].b_uploadbuffer = np.zeros(self.dimension)
+				self.clients[currentclientID].arm_selection_uploadbuffer = np.zeros(self.dimension)
+
+				# other agents download the update
+				for clientID, client in self.clients.items():
+					self.totalCommCost += 1
+					client.A_local += self.A_downloadbuffer[clientID]
+					client.b_local += self.b_downloadbuffer[clientID]
+					client.arm_selection_local += self.arm_selection_downloadbuffer[clientID]
+
+					self.A_downloadbuffer[clientID] = np.zeros((self.dimension, self.dimension))
+					self.b_downloadbuffer[clientID] = np.zeros(self.dimension)
+					self.arm_selection_downloadbuffer[clientID] = np.zeros(self.K)
 				
 				# Select_direction
 				self.theta_hat = np.linalg.solve(self.A_aggregated, self.b_aggregated)
@@ -271,22 +278,10 @@ class LinGapE_mult:
 				self.it = np.argmax(self.est_reward)
 				self.jt = np.argmax(self.est_reward - 
 									np.max(self.est_reward) + 
-									np.array([self.confidence_bound(x - self.X[self.it], self.A_aggregated, np.sum(self.arm_selection_aggregated)) for x in self.X]))
-				self.B = self.est_reward[self.jt] - self.est_reward[self.it] + self.confidence_bound(self.X[self.it] - self.X[self.jt], self.A_aggregated, np.sum(self.arm_selection_aggregated))
+									np.array([self.confidence_bound(x - self.X[self.it], self.A_aggregated, self.samplecomplexity) for x in self.X]))
+				self.B = self.est_reward[self.jt] - self.est_reward[self.it] + self.confidence_bound(self.X[self.it] - self.X[self.jt], self.A_aggregated, self.samplecomplexity)
 				# self.B = np.max(self.est_reward-np.max(self.est_reward)+np.array([self.confidence_bound(x - self.X[self.it], self.A, self.samplecomplexity) for x in self.X]))
 				# print("Iteration %d"%self.samplecomplexity, " Elapsed time", datetime.datetime.now() - startTime)
-
-
-				self.clients[currentclientID].A_local = copy.deepcopy(self.A_aggregated) 
-				self.clients[currentclientID].b_local = copy.deepcopy(self.b_aggregated) 
-				self.clients[currentclientID].arm_selection_local = copy.deepcopy(self.arm_selection_aggregated)
-
-
-				# clear client's upload buffer
-				self.clients[currentclientID].A_uploadbuffer = np.zeros((self.dimension, self.dimension))
-				self.clients[currentclientID].b_uploadbuffer = np.zeros(self.dimension)
-				self.clients[currentclientID].arm_selection_uploadbuffer = np.zeros(self.dimension)
-				
 		best_arm = self.it
 		print()
 		print("SampleComplexity: ", self.samplecomplexity)

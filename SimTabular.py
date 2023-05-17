@@ -181,9 +181,9 @@ class simulateOnlineData(object):
 
 			# axa[0].plot(sx, syu, marker='o', linestyle='dotted', label='UGapE')
 			# axa[0].plot(sx, syl, marker='o', linestyle='dotted', label='LinGapE')
-			axa[0].plot(sx, sylh, marker='o', linestyle='dotted', label='UGapE-Homogen-FullConn')
-			axa[0].plot(sx, syuh, marker='o', linestyle='dotted', label='UGapE-Homogen-Sync')
-			axa[0].plot(sx, sydh, marker='o', linestyle='dotted', label='FedAMABPE-Homogen')
+			axa[0].plot(sx, sylh, marker='o', linestyle='dotted', label='UGapE-Single')
+			axa[0].plot(sx, syuh, marker='v', linestyle='dotted', label='UGapE-Sync')
+			axa[0].plot(sx, sydh, marker='s', linestyle='dotted', label='FedAMABPE')
 			axa[0].legend(loc='upper right')
 			axa[0].set_xlabel("Expected Reward Gap")
 			axa[0].set_ylabel("SampleComplexity")
@@ -204,13 +204,13 @@ class simulateOnlineData(object):
 				if alg_name[17] == 'D' and alg_name[13:16] == 'Hom':
 					cyd.append(CommCostList_D[alg_name])
 					print('%s: %.2f' % (alg_name, CommCostList_D[alg_name][-1]))
-			axa[1].plot(cx, cyl, marker='o', linestyle='dotted', label='UGapE-Homogen-Full')
-			axa[1].plot(cx, cyu, marker='o', linestyle='dotted', label='UGapE-Homogen-Sync')
-			axa[1].plot(cx, cyd, marker='o', linestyle='dotted', label='DisATarPE-Homogen')
+			# axa[1].plot(cx, cyl, marker='o', linestyle='dotted', label='UGapE-Single')
+			axa[1].plot(cx, cyu, marker='v', linestyle='dotted', label='UGapE-Sync')
+			axa[1].plot(cx, cyd, marker='s', linestyle='dotted', label='FedAMABPE')
 			axa[1].set_xlabel("Expected Reward Gap")
 			axa[1].set_ylabel("Communication Cost")
 			axa[1].legend(loc='upper right')
-			plt.savefig(os.path.join(save_Tabular_Case, "SamConAndCommCost_dataset" + self.dataset + str(timeRun) + '.png'), dpi=300, bbox_inches='tight', pad_inches=0.0)
+			plt.savefig(os.path.join(save_Tabular_Case, "SamConAndCommCost_dataset" + self.dataset + str(timeRun) + '.pdf'), dpi=300, bbox_inches='tight', pad_inches=0.0)
 			plt.show()
 
 		
@@ -275,7 +275,7 @@ if __name__ == '__main__':
 										dataset=dataset)
 
 	# gamma = 1/(np.sqrt(n_users*n_users*n_users)*5)
-	gamma = 0.005
+	gamma = 0.3
 
 	# print(gamma)
 	# exit(0)
