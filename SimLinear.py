@@ -10,12 +10,10 @@ import argparse
 from conf import sim_files_folder, save_Linear_Case
 from util_functions import featureUniform, gaussianFeature
 
-from lib.AsyncLinUCB import AsyncLinUCB
-from lib.SyncLinUCB import SyncLinUCB
-from lib.UGapE_multi import UGapE_mult
-from lib.LinGapE_multi import LinGapE_mult
-from lib.UGapE import UGapE
+from lib.LinGapE_sync import LinGapE_mult
+from lib.LinGapE_full import LinGapE_full
 from lib.LinGapE import LinGapE
+from lib.DisALinPE import DisALinPE
 
 class simulateOnlineData(object):
 	def __init__(self, context_dimension, plot, dataset,
@@ -48,25 +46,30 @@ class simulateOnlineData(object):
 		filenameWriteCommCost = os.path.join(save_Linear_Case, 'AccCommCost_dataset' + self.dataset + timeRun + '.csv')
 
 
-		SampleComList_U = {}
+		# SampleComList_U = {}
 		SampleComList_U_Hom = {}
-		SampleComList_L = {}
+		# SampleComList_L = {}
 		SampleComList_L_Hom = {}
+		SampleComList_D_Hom = {}
 
 		CommCostList_L = {}
 		CommCostList_U = {}
+		CommCostList_D = {}
 
 		for alg_name, alg in algorithms.items():
-			if alg_name[17] == 'U' and alg_name[13:16] == 'Sin':
-				SampleComList_U[alg_name] = []
-			if alg_name[17] == 'L' and alg_name[13:16] == 'Sin':
-				SampleComList_L[alg_name] = []
+			# if alg_name[17] == 'U' and alg_name[13:16] == 'Sin':
+			# 	SampleComList_U[alg_name] = []
+			# if alg_name[17] == 'L' and alg_name[13:16] == 'Sin':
+			# 	SampleComList_L[alg_name] = []
 			if alg_name[17] == 'L' and alg_name[13:16] == 'Hom':
 				SampleComList_L_Hom[alg_name] = []
 				CommCostList_L[alg_name] = []
 			if alg_name[17] == 'U' and alg_name[13:16] == 'Hom':
 				SampleComList_U_Hom[alg_name] = []
 				CommCostList_U[alg_name] = []
+			if alg_name[17] == 'D' and alg_name[13:16] == 'Hom':
+				SampleComList_D_Hom[alg_name] = []
+				CommCostList_D[alg_name] = []
 			# print(alg_name[17])
 			# print(alg_name[13:16])
 		# print(SampleComList_U)
@@ -77,16 +80,20 @@ class simulateOnlineData(object):
 			
 			samplecomplexity, arm_selection, best_arm, totalCommCost = alg.run()
 
-			if alg_name[17] == 'U' and alg_name[13:16] == 'Sin':
-				SampleComList_U[alg_name].append(samplecomplexity)
-			if alg_name[17] == 'L' and alg_name[13:16] == 'Sin':
-				SampleComList_L[alg_name].append(samplecomplexity)
+			# if alg_name[17] == 'U' and alg_name[13:16] == 'Sin':
+			# 	SampleComList_U[alg_name].append(samplecomplexity)
+			# if alg_name[17] == 'L' and alg_name[13:16] == 'Sin':
+			# 	SampleComList_L[alg_name].append(samplecomplexity)
 			if alg_name[17] == 'L' and alg_name[13:16] == 'Hom':
 				SampleComList_L_Hom[alg_name].append(samplecomplexity)
 				CommCostList_L[alg_name].append(totalCommCost)
 			if alg_name[17] == 'U' and alg_name[13:16] == 'Hom':
 				SampleComList_U_Hom[alg_name].append(samplecomplexity)
 				CommCostList_U[alg_name].append(totalCommCost)
+			if alg_name[17] == 'D' and alg_name[13:16] == 'Hom':
+				SampleComList_D_Hom[alg_name].append(samplecomplexity)
+				CommCostList_D[alg_name].append(totalCommCost)
+
 
 				
 
@@ -111,17 +118,20 @@ class simulateOnlineData(object):
 
 		with open(filenameWriteSampleComplex, 'a+') as f:
 			for alg_name in algorithms.keys():
-				if alg_name[17] == 'U' and alg_name[13:16] == 'Sin':
-					f.write(','. join([str(SampleComList_U[alg_name][-1])]))
-					f.write('\n')
-				if alg_name[17] == 'L' and alg_name[13:16] == 'Sin':
-					f.write(','. join([str(SampleComList_L[alg_name][-1])]))
-					f.write('\n')
+				# if alg_name[17] == 'U' and alg_name[13:16] == 'Sin':
+				# 	f.write(','. join([str(SampleComList_U[alg_name][-1])]))
+				# 	f.write('\n')
+				# if alg_name[17] == 'L' and alg_name[13:16] == 'Sin':
+				# 	f.write(','. join([str(SampleComList_L[alg_name][-1])]))
+					# f.write('\n')
 				if alg_name[17] == 'L' and alg_name[13:16] == 'Hom':
 					f.write(','. join([str(SampleComList_L_Hom[alg_name][-1])]))
 					f.write('\n')
 				if alg_name[17] == 'U' and alg_name[13:16] == 'Hom':
 					f.write(','. join([str(SampleComList_U_Hom[alg_name][-1])]))
+					f.write('\n')
+				if alg_name[17] == 'D' and alg_name[13:16] == 'Hom':
+					f.write(','. join([str(SampleComList_D_Hom[alg_name][-1])]))
 					f.write('\n')
 		with open(filenameWriteCommCost, 'a+') as f:
 			for alg_name in algorithms.keys():
@@ -131,6 +141,9 @@ class simulateOnlineData(object):
 				if alg_name[17] == 'U' and alg_name[13:16] == 'Hom':
 					f.write(','. join([str(CommCostList_U[alg_name][-1])]))
 					f.write('\n')
+				if alg_name[17] == 'D' and alg_name[13:16] == 'Hom':
+					f.write(','. join([str(CommCostList_D[alg_name][-1])]))
+					f.write('\n')
 	
 		if (self.plot==True): # only plot
 			# # plot the results
@@ -139,31 +152,37 @@ class simulateOnlineData(object):
 			fig.subplots_adjust(hspace=0)
 
 			sx = []
-			syl = []
-			syu = []
+			# syl = []
+			# syu = []
 			sylh = []
 			syuh = []
+			sydh = []
 
 			print("=====Sample Complexity=====")
 			for alg_name in algorithms.keys():
-				if alg_name[17] == 'U' and alg_name[13:16] == 'Sin':
-					syu.append(SampleComList_U[alg_name])
-					sx.append(float(alg_name[5])/10)
-					print('%s: %.2f' % (alg_name,SampleComList_U[alg_name][-1]))
-				if alg_name[17] == 'L' and alg_name[13:16] == 'Sin':
-					syl.append(SampleComList_L[alg_name])
-					print('%s: %.2f' % (alg_name, SampleComList_L[alg_name][-1]))
+				# if alg_name[17] == 'U' and alg_name[13:16] == 'Sin':
+				# 	syu.append(SampleComList_U[alg_name])
+				# 	sx.append(float(alg_name[5])/10)
+				# 	print('%s: %.2f' % (alg_name,SampleComList_U[alg_name][-1]))
+				# if alg_name[17] == 'L' and alg_name[13:16] == 'Sin':
+				# 	syl.append(SampleComList_L[alg_name])
+				# 	print('%s: %.2f' % (alg_name, SampleComList_L[alg_name][-1]))
 				if alg_name[17] == 'L' and alg_name[13:16] == 'Hom':
+					sx.append(float(alg_name[5])/10)
 					sylh.append(SampleComList_L_Hom[alg_name])
 					print('%s: %.2f' % (alg_name, SampleComList_L_Hom[alg_name][-1]))
 				if alg_name[17] == 'U' and alg_name[13:16] == 'Hom':
 					syuh.append(SampleComList_U_Hom[alg_name])
 					print('%s: %.2f' % (alg_name, SampleComList_U_Hom[alg_name][-1]))
+				if alg_name[17] == 'D' and alg_name[13:16] == 'Hom':
+					sydh.append(SampleComList_D_Hom[alg_name])
+					print('%s: %.2f' % (alg_name, SampleComList_D_Hom[alg_name][-1]))
 
-			axa[0].plot(sx, syu, marker='o', linestyle='dotted', label='UGapE')
-			axa[0].plot(sx, syl, marker='o', linestyle='dotted', label='LinGapE')
-			axa[0].plot(sx, sylh, marker='o', linestyle='dotted', label='LinGapE-Homogen')
-			axa[0].plot(sx, syuh, marker='o', linestyle='dotted', label='UGapE-Homogen')
+			# axa[0].plot(sx, syu, marker='o', linestyle='dotted', label='UGapE')
+			# axa[0].plot(sx, syl, marker='o', linestyle='dotted', label='LinGapE')
+			axa[0].plot(sx, sylh, marker='o', linestyle='dotted', label='LinGapE-Homogen-Sync')
+			axa[0].plot(sx, syuh, marker='o', linestyle='dotted', label='LinGapE-Homogen-FullConn')
+			axa[0].plot(sx, sydh, marker='o', linestyle='dotted', label='DisALinPE-Homogen')
 			axa[0].legend(loc='upper right')
 			axa[0].set_xlabel("Expected Reward Gap")
 			axa[0].set_ylabel("SampleComplexity")
@@ -171,6 +190,7 @@ class simulateOnlineData(object):
 			cx = []
 			cyl = []
 			cyu = []
+			cyd = []
 			print("=====Comm Cost=====")
 			for alg_name in algorithms.keys():
 				if alg_name[17] == 'L' and alg_name[13:16] == 'Hom':
@@ -180,8 +200,12 @@ class simulateOnlineData(object):
 				if alg_name[17] == 'U' and alg_name[13:16] == 'Hom':
 					cyu.append(CommCostList_U[alg_name])
 					print('%s: %.2f' % (alg_name, CommCostList_U[alg_name][-1]))
-			axa[1].plot(cx, cyl, marker='o', linestyle='dotted', label='LinGapE-Homogen')
-			axa[1].plot(cx, cyu, marker='o', linestyle='dotted', label='UGapE-Homogen')
+				if alg_name[17] == 'D' and alg_name[13:16] == 'Hom':
+					cyd.append(CommCostList_D[alg_name])
+					print('%s: %.2f' % (alg_name, CommCostList_D[alg_name][-1]))
+			axa[1].plot(cx, cyl, marker='o', linestyle='dotted', label='LinGapE-Homogen-sync')
+			axa[1].plot(cx, cyu, marker='o', linestyle='dotted', label='LinGapE-Homogen-full')
+			axa[1].plot(cx, cyd, marker='o', linestyle='dotted', label='FedALinPE-Homogen')
 			axa[1].set_xlabel("Expected Reward Gap")
 			axa[1].set_ylabel("Communication Cost")
 			axa[1].legend(loc='upper right')
@@ -209,7 +233,7 @@ if __name__ == '__main__':
 	if args.N:
 		n_users = int(args.N)
 	else:
-		n_users = 100
+		n_users = 10
 	
 	if args.E:
 		epsilon = float(args.E)
@@ -232,8 +256,8 @@ if __name__ == '__main__':
 	else:
 		case = 'linear'
 	
-	NoiseScale = 0.1  # standard deviation of Gaussian noise
-	n_articles = 10
+	NoiseScale = 1  # standard deviation of Gaussian noise
+	n_articles = 5
 	poolArticleSize = 25
 
 	## Set Up Simulation ##
@@ -248,42 +272,57 @@ if __name__ == '__main__':
 										NoiseScale=NoiseScale,
 										poolArticleSize=poolArticleSize,
 										dataset=dataset)
+	
+	# based on the following caculation, gamma1 = 0.01, gamma2 = 0.00632455532033676, reg = 22.378511198424423
+	# gamma1 = 1/n_users/n_users
+	# gamma2 = 1/(np.sqrt(n_users*n_users*n_users)*5)
+	# tmp = (np.sqrt(1+gamma1*n_users)+np.sqrt(2*gamma1)*n_users)
+	# reg = NoiseScale*NoiseScale*tmp*tmp*np.log(2/0.05)
+
+	gamma1 = 0.01
+	gamma2 = 0.005
+	reg = 1
+
+	# print(gamma1)
+	# print(gamma2)
+	# print(reg)
+	# exit(0)
 
 	## Initiate Bandit Algorithms ##
 	algorithms = {}
 	if dataset == 0:
-		algorithms['gap=.1_data0_Sin_U'] = UGapE(dimension=5, epsilon=epsilon, 
-								delta= delta, NoiseScale=NoiseScale, 
-								dataset=0, case='linear', gap=1)
-		algorithms['gap=.2_data0_Sin_U'] = UGapE(dimension=5, epsilon=epsilon, 
-								delta= delta, NoiseScale=NoiseScale, 
-								dataset=0, case='linear', gap=2)
-		algorithms['gap=.3_data0_Sin_U'] = UGapE(dimension=5, epsilon=epsilon, 
-								delta= delta, NoiseScale=NoiseScale, 
-								dataset=0, case='linear', gap=3)
-		algorithms['gap=.4_data0_Sin_U'] = UGapE(dimension=5, epsilon=epsilon, 
-								delta= delta, NoiseScale=NoiseScale, 
-								dataset=0, case='linear', gap=4)
-		algorithms['gap=.5_data0_Sin_U'] = UGapE(dimension=5, epsilon=epsilon, 
-								delta= delta, NoiseScale=NoiseScale, 
-								dataset=0, case='linear', gap=5)
+		# algorithms['gap=.1_data0_Sin_U'] = UGapE(dimension=5, epsilon=epsilon, 
+		# 						delta= delta, NoiseScale=NoiseScale, 
+		# 						dataset=0, case='linear', gap=1)
+		# algorithms['gap=.2_data0_Sin_U'] = UGapE(dimension=5, epsilon=epsilon, 
+		# 						delta= delta, NoiseScale=NoiseScale, 
+		# 						dataset=0, case='linear', gap=2)
+		# algorithms['gap=.3_data0_Sin_U'] = UGapE(dimension=5, epsilon=epsilon, 
+		# 						delta= delta, NoiseScale=NoiseScale, 
+		# 						dataset=0, case='linear', gap=3)
+		# algorithms['gap=.4_data0_Sin_U'] = UGapE(dimension=5, epsilon=epsilon, 
+		# 						delta= delta, NoiseScale=NoiseScale, 
+		# 						dataset=0, case='linear', gap=4)
+		# algorithms['gap=.5_data0_Sin_U'] = UGapE(dimension=5, epsilon=epsilon, 
+		# 						delta= delta, NoiseScale=NoiseScale, 
+		# 						dataset=0, case='linear', gap=5)
 		
 
-		algorithms['gap=.1_data0_Sin_L'] = LinGapE(dimension=5, epsilon=epsilon, 
-								delta= delta, NoiseScale=NoiseScale, 
-								dataset=0, case='linear', gap=1)
-		algorithms['gap=.2_data0_Sin_L'] = LinGapE(dimension=5, epsilon=epsilon, 
-								delta= delta, NoiseScale=NoiseScale, 
-								dataset=0, case='linear', gap=2)
-		algorithms['gap=.3_data0_Sin_L'] = LinGapE(dimension=5, epsilon=epsilon, 
-								delta= delta, NoiseScale=NoiseScale, 
-								dataset=0, case='linear', gap=3)
-		algorithms['gap=.4_data0_Sin_L'] = LinGapE(dimension=5, epsilon=epsilon, 
-								delta= delta, NoiseScale=NoiseScale, 
-								dataset=0, case='linear', gap=4)
-		algorithms['gap=.5_data0_Sin_L'] = LinGapE(dimension=5, epsilon=epsilon, 
-								delta= delta, NoiseScale=NoiseScale, 
-								dataset=0, case='linear', gap=5)
+		# algorithms['gap=.1_data0_Sin_L'] = LinGapE(dimension=5, epsilon=epsilon, 
+		# 						delta= delta, NoiseScale=NoiseScale, 
+		# 						dataset=0, case='linear', gap=1)
+		# algorithms['gap=.2_data0_Sin_L'] = LinGapE(dimension=5, epsilon=epsilon, 
+		# 						delta= delta, NoiseScale=NoiseScale, 
+		# 						dataset=0, case='linear', gap=2)
+		# algorithms['gap=.3_data0_Sin_L'] = LinGapE(dimension=5, epsilon=epsilon, 
+		# 						delta= delta, NoiseScale=NoiseScale, 
+		# 						dataset=0, case='linear', gap=3)
+		# algorithms['gap=.4_data0_Sin_L'] = LinGapE(dimension=5, epsilon=epsilon, 
+		# 						delta= delta, NoiseScale=NoiseScale, 
+		# 						dataset=0, case='linear', gap=4)
+		# algorithms['gap=.5_data0_Sin_L'] = LinGapE(dimension=5, epsilon=epsilon, 
+		# 						delta= delta, NoiseScale=NoiseScale, 
+		# 						dataset=0, case='linear', gap=5)
 		
 		algorithms['gap=.1_data0_Hom_L'] = LinGapE_mult(dimension=5, epsilon=epsilon, 
 								delta= delta, NoiseScale=NoiseScale, 
@@ -301,21 +340,108 @@ if __name__ == '__main__':
 								delta= delta, NoiseScale=NoiseScale, 
 								dataset=0, case='linear', gap=5)
 		
-		algorithms['gap=.1_data0_Hom_U'] = UGapE_mult(dimension=5, epsilon=epsilon, 
+		algorithms['gap=.1_data0_Hom_U'] = LinGapE_full(dimension=5, epsilon=epsilon, 
 								delta= delta, NoiseScale=NoiseScale, 
 								dataset=0, case='linear', gap=1)
-		algorithms['gap=.2_data0_Hom_U'] = UGapE_mult(dimension=5, epsilon=epsilon, 
+		algorithms['gap=.2_data0_Hom_U'] = LinGapE_full(dimension=5, epsilon=epsilon, 
 								delta= delta, NoiseScale=NoiseScale, 
 								dataset=0, case='linear', gap=2)
-		algorithms['gap=.3_data0_Hom_U'] = UGapE_mult(dimension=5, epsilon=epsilon, 
+		algorithms['gap=.3_data0_Hom_U'] = LinGapE_full(dimension=5, epsilon=epsilon, 
 								delta= delta, NoiseScale=NoiseScale, 
 								dataset=0, case='linear', gap=3)
-		algorithms['gap=.4_data0_Hom_U'] = UGapE_mult(dimension=5, epsilon=epsilon, 
+		algorithms['gap=.4_data0_Hom_U'] = LinGapE_full(dimension=5, epsilon=epsilon, 
 								delta= delta, NoiseScale=NoiseScale, 
 								dataset=0, case='linear', gap=4)
-		algorithms['gap=.5_data0_Hom_U'] = UGapE_mult(dimension=5, epsilon=epsilon, 
+		algorithms['gap=.5_data0_Hom_U'] = LinGapE_full(dimension=5, epsilon=epsilon, 
 								delta= delta, NoiseScale=NoiseScale, 
 								dataset=0, case='linear', gap=5)
+
+	if dataset == 2:
+		# algorithms['gap=.1_data2_Sin_U'] = UGapE(dimension=5, epsilon=epsilon, 
+		# 						delta= delta, NoiseScale=NoiseScale, 
+		# 						dataset=2, case='linear', gap=1)
+		# algorithms['gap=.2_data2_Sin_U'] = UGapE(dimension=5, epsilon=epsilon, 
+		# 						delta= delta, NoiseScale=NoiseScale, 
+		# 						dataset=2, case='linear', gap=2)
+		# algorithms['gap=.3_data2_Sin_U'] = UGapE(dimension=5, epsilon=epsilon, 
+		# 						delta= delta, NoiseScale=NoiseScale, 
+		# 						dataset=2, case='linear', gap=3)
+		# algorithms['gap=.4_data2_Sin_U'] = UGapE(dimension=5, epsilon=epsilon, 
+		# 						delta= delta, NoiseScale=NoiseScale, 
+		# 						dataset=2, case='linear', gap=4)
+		# algorithms['gap=.5_data2_Sin_U'] = UGapE(dimension=5, epsilon=epsilon, 
+		# 						delta= delta, NoiseScale=NoiseScale, 
+		# 						dataset=2, case='linear', gap=5)
+		
+
+		# algorithms['gap=.1_data2_Sin_L'] = LinGapE(dimension=5, epsilon=epsilon, 
+		# 						delta= delta, NoiseScale=NoiseScale, 
+		# 						dataset=2, case='linear', gap=1)
+		# algorithms['gap=.2_data2_Sin_L'] = LinGapE(dimension=5, epsilon=epsilon, 
+		# 						delta= delta, NoiseScale=NoiseScale, 
+		# 						dataset=2, case='linear', gap=2)
+		# algorithms['gap=.3_data2_Sin_L'] = LinGapE(dimension=5, epsilon=epsilon, 
+		# 						delta= delta, NoiseScale=NoiseScale, 
+		# 						dataset=2, case='linear', gap=3)
+		# algorithms['gap=.4_data2_Sin_L'] = LinGapE(dimension=5, epsilon=epsilon, 
+		# 						delta= delta, NoiseScale=NoiseScale, 
+		# 						dataset=2, case='linear', gap=4)
+		# algorithms['gap=.5_data2_Sin_L'] = LinGapE(dimension=5, epsilon=epsilon, 
+		# 						delta= delta, NoiseScale=NoiseScale, 
+		# 						dataset=2, case='linear', gap=5)
+		
+		algorithms['gap=.1_data2_Hom_L'] = LinGapE_mult(dimension=5, epsilon=epsilon, 
+								delta= delta, NoiseScale=NoiseScale, 
+								dataset=2, case='linear', gap=1)
+		algorithms['gap=.2_data2_Hom_L'] = LinGapE_mult(dimension=5, epsilon=epsilon, 
+								delta= delta, NoiseScale=NoiseScale, 
+								dataset=2, case='linear', gap=2)
+		algorithms['gap=.3_data2_Hom_L'] = LinGapE_mult(dimension=5, epsilon=epsilon, 
+								delta= delta, NoiseScale=NoiseScale, 
+								dataset=2, case='linear', gap=3)
+		algorithms['gap=.4_data2_Hom_L'] = LinGapE_mult(dimension=5, epsilon=epsilon, 
+								delta= delta, NoiseScale=NoiseScale, 
+								dataset=2, case='linear', gap=4)
+		algorithms['gap=.5_data2_Hom_L'] = LinGapE_mult(dimension=5, epsilon=epsilon, 
+								delta= delta, NoiseScale=NoiseScale, 
+								dataset=2, case='linear', gap=5)
+		
+		algorithms['gap=.1_data2_Hom_U'] = LinGapE_full(dimension=5, epsilon=epsilon, 
+								delta= delta, NoiseScale=NoiseScale, 
+								dataset=2, case='linear', gap=1)
+		algorithms['gap=.2_data2_Hom_U'] = LinGapE_full(dimension=5, epsilon=epsilon, 
+								delta= delta, NoiseScale=NoiseScale, 
+								dataset=2, case='linear', gap=2)
+		algorithms['gap=.3_data2_Hom_U'] = LinGapE_full(dimension=5, epsilon=epsilon, 
+								delta= delta, NoiseScale=NoiseScale, 
+								dataset=2, case='linear', gap=3)
+		algorithms['gap=.4_data2_Hom_U'] = LinGapE_full(dimension=5, epsilon=epsilon, 
+								delta= delta, NoiseScale=NoiseScale, 
+								dataset=2, case='linear', gap=4)
+		algorithms['gap=.5_data2_Hom_U'] = LinGapE_full(dimension=5, epsilon=epsilon, 
+								delta= delta, NoiseScale=NoiseScale, 
+								dataset=2, case='linear', gap=5)
+		
+		algorithms['gap=.1_data2_Hom_D'] = DisALinPE(dimension=5, epsilon=epsilon, 
+								delta= delta, NoiseScale=NoiseScale, 
+								dataset=dataset, case=case, gap=1, n_clients=n_users, 
+								gamma1=gamma1, gamma2=gamma2, reg=reg)
+		algorithms['gap=.2_data2_Hom_D'] = DisALinPE(dimension=5, epsilon=epsilon, 
+								delta= delta, NoiseScale=NoiseScale, 
+								dataset=dataset, case=case, gap=2, n_clients=n_users, 
+								gamma1=gamma1, gamma2=gamma2, reg=reg)
+		algorithms['gap=.3_data2_Hom_D'] = DisALinPE(dimension=5, epsilon=epsilon, 
+								delta= delta, NoiseScale=NoiseScale, 
+								dataset=dataset, case=case, gap=3, n_clients=n_users, 
+								gamma1=gamma1, gamma2=gamma2, reg=reg)
+		algorithms['gap=.4_data2_Hom_D'] = DisALinPE(dimension=5, epsilon=epsilon, 
+								delta= delta, NoiseScale=NoiseScale, 
+								dataset=dataset, case=case, gap=4, n_clients=n_users, 
+								gamma1=gamma1, gamma2=gamma2, reg=reg)
+		algorithms['gap=.5_data2_Hom_D'] = DisALinPE(dimension=5, epsilon=epsilon, 
+								delta= delta, NoiseScale=NoiseScale, 
+								dataset=dataset, case=case, gap=5, n_clients=n_users, 
+								gamma1=gamma1, gamma2=gamma2, reg=reg)
 
 
 

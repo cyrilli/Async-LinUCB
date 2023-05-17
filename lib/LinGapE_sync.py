@@ -4,59 +4,84 @@ import copy
 import datetime
 import sys
 
-from pulp import LpProblem, LpMinimize, LpVariable, lpSum, PULP_CBC_CMD
-
 sys.path.append('/nfs/stak/users/songchen/research/Async-LinUCB/Dataset/SimArticles')
 from Articles import ArticleManager
 from Users import UserManager
 from util_functions import featureUniform, gaussianFeature
 
 class LocalClient:
-	def __init__(self, featureDimension, theta, sigma):
+	def __init__(self, featureDimension, theta, sigma, X, reg, delta):
 		self.d = featureDimension
 		self.theta = theta
 		self.sigma = sigma
+		self.X = X
+		self.K = len(self.X)
+		self.reg = reg
+		self.delta = delta
 
 		# Sufficient statistics stored on the client #
 		# latest local sufficient statistics
 		self.A_local = np.zeros((self.d, self.d))  #lambda_ * np.identity(n=self.d)
 		self.b_local = np.zeros(self.d)
-		self.arm_selection_local = 0
+		self.arm_selection_local = np.zeros(self.d)
 
 		# aggregated sufficient statistics recently downloaded
 		self.A_uploadbuffer = np.zeros((self.d, self.d))
 		self.b_uploadbuffer = np.zeros(self.d)
-		self.arm_selection_uploadbuffer = 0
+		self.arm_selection_uploadbuffer = np.zeros(self.d)
 	
 	def matrix_dot(self, a):
-		return np.expand_dims(a, -1).dot(np.expand_dims(a, axis=0))
+		return np.expand_dims(a, axis=1).dot(np.expand_dims(a, axis=0))
+	
+	def confidence_bound(self, x, A, t):
+		L = 1
+		tmp = np.sqrt(x.dot(np.linalg.inv(A)).dot(x))
+		return tmp * (self.sigma * np.sqrt(self.d * 
+				     np.log(self.K * self.K * (1 + t * L * L) / self.reg / self.delta)) + 
+					 np.sqrt(self.reg) * 2)
 
-	def localUpdate(self, arm_featureVector):
+
+	def decide_arm(self):
+		self.theta_hat = np.linalg.solve(self.A_local, self.b_local)
+		self.est_reward = self.X.dot(self.theta_hat)
+		self.it = np.argmax(self.est_reward)
+		self.jt = np.argmax(self.est_reward - self.est_reward[self.it] +
+				np.array([self.confidence_bound(x - self.X[self.it], self.A_local, np.sum(self.arm_selection_local)) for x in self.X]))
+		
+		y = self.X[self.it]- self.X[self.jt]
+		tmp = [y.dot(np.linalg.inv(self.A_local + self.matrix_dot(x))).dot(y) for x in (self.X)]
+		a = np.argmin(tmp)
+		self.localUpdate(self.X[a],a)
+
+
+
+	def localUpdate(self, arm_featureVector, a):
+		r = (self.theta.dot(arm_featureVector) + np.random.randn()*self.sigma)
 		self.A_local += self.matrix_dot(arm_featureVector)
-		self.b_local += arm_featureVector * (self.theta.dot(arm_featureVector) + np.random.randn()*self.sigma)
-		self.arm_selection_local = 1
+		self.b_local += arm_featureVector * r
+		self.arm_selection_local[a] += 1
 
 		self.A_uploadbuffer += self.matrix_dot(arm_featureVector)
-		self.b_uploadbuffer += arm_featureVector * (self.theta.dot(arm_featureVector) + np.random.randn()*self.sigma)
-		self.arm_selection_uploadbuffer = 1
+		self.b_uploadbuffer += arm_featureVector * r
+		self.arm_selection_uploadbuffer[a] += 1
 	
-	def localUpdate_tabular(self, arm_featureVector, true_reward):
+	def localUpdate_tabular(self, arm_featureVector, true_reward, a):
 		self.A_local += self.matrix_dot(arm_featureVector)
 		self.b_local += arm_featureVector * (true_reward + np.random.randn()*self.sigma)
-		self.arm_selection_local = 1
+		self.arm_selection_local[a] += 1
 
 		self.A_uploadbuffer += self.matrix_dot(arm_featureVector)
 		self.b_uploadbuffer += arm_featureVector * (true_reward + np.random.randn()*self.sigma)
-		self.arm_selection_uploadbuffer = 1
+		self.arm_selection_uploadbuffer[a] += 1
 
-class UGapE_mult:
+class LinGapE_mult:
 	def __init__(self, dimension, epsilon, delta, NoiseScale,  dataset, case, gap):
 		self.dimension = dimension
 		self.epsilon = epsilon
 		self.delta = delta
 		self.NoiseScale = NoiseScale
 		self.dataset = dataset
-		self.case = case
+		self.case = 'linear'
 
 		# for LinGapE computing
 		self.sigma = 1.0
@@ -72,8 +97,8 @@ class UGapE_mult:
 			# For the homogeneous case:
 			self.theta = users[0].theta
 
-			AM = ArticleManager(self.dimension, 5, argv={'l2_limit': 1}, theta=self.theta)
-			Article_filename = '/nfs/stak/users/songchen/research/Async-LinUCB/Dataset/SimArticles/ArticlesForHomo_' + str(gap/10) + '_' + str(5) + '.dat'
+			AM = ArticleManager(self.dimension, self.dimension, argv={'l2_limit': 1}, theta=self.theta)
+			Article_filename = '/nfs/stak/users/songchen/research/Async-LinUCB/Dataset/SimArticles/ArticlesForHomo_' + str(gap/10) + '_' + str(self.dimension) + '.dat'
 			articles = AM.loadArticles(Article_filename)
 			self.X = np.zeros((len(articles), self.dimension), dtype=float)
 			self.K = len(articles)
@@ -94,8 +119,8 @@ class UGapE_mult:
 
 		# syn dataset setting 2(corresponding to the LinGapE paper exp 7.1.2)
 		if dataset == 2 and case == 'linear':
-			self.K = 5
-			self.dimension = 5
+			self.dimension = dimension
+			self.K = self.dimension
 			self.X = np.eye(self.dimension, dtype=float)
 			self.theta = np.zeros(self.dimension, dtype = float)
 			# hyperparameters to control the true reward gap:
@@ -116,8 +141,8 @@ class UGapE_mult:
 		
 		# syn dataset setting of tabular case
 		if dataset == 2 and case == 'tabular':
-			self.K = 5
-			self.dimension = 5
+			self.dimension = dimension
+			self.K = self.dimension
 			self.X = np.eye(self.dimension, dtype=float)
 			self.theta = np.zeros(self.dimension, dtype = float)
 			# self.theta = np.array([0.2, 0.4, 0.6, 0.8, 0.9])
@@ -145,10 +170,6 @@ class UGapE_mult:
 		self.A_aggregated = np.eye(self.dimension)*self.reg
 		self.b_aggregated = np.zeros(self.dimension)
 		self.arm_selection_aggregated = np.ones(self.K) # for inilization, all arm got pulled once
-		# aggregated sufficient statistics that haven't been sent to each client
-		self.A_downloadbuffer = {}
-		self.b_downloadbuffer = {}
-		self.arm_selection_downloadbuffer = {}
 
 		# print(self.X)
 		# exit(0)
@@ -157,64 +178,54 @@ class UGapE_mult:
 		return self.theta.dot(arm_vector)
 
 	def compute_true_gap(self):
-		if self.case == 'linear':
-			# compute the true gap of dataset
-			reward = np.zeros(self.K,dtype=float)
-			for i in range(self.K):
-				reward[i] = self.getReward(self.X[i])
-			reward = np.sort(reward)
-			gap = reward[self.K-1] - reward[self.K-2]
-			print("Expected reward gap: ",gap)
-		elif self.case == "tabular":
-			gap = self.t_reward[0] - self.t_reward[1]
-			print("Expected reward gap: ",gap)
-	
-	def get_optimal(self, y):
-		names = [str(i) for i in range(self.K)]
-		prob = LpProblem("The Whiskas Problem", LpMinimize)
-		w = LpVariable.dicts("w", names)
-		abs_w = LpVariable.dicts("abs_w", names, lowBound=0)
-		prob += lpSum([abs_w[i] for i in names])
-		for j in range(self.dimension):
-			prob += (lpSum([self.X[int(i), j] * w[i] for i in names]) == y[j])
-		for i in names:
-			prob += (abs_w[i] >= w[i])
-			prob += (abs_w[i] >= -w[i])
-		prob.solve(PULP_CBC_CMD(msg=0))
-		ratio = np.array([abs_w[i].value() for i in names])
-		return ratio
+		# compute the true gap of dataset
+		reward = np.zeros(self.K,dtype=float)
+		for i in range(self.K):
+			reward[i] = self.getReward(self.X[i])
+		reward = np.sort(reward)
+		gap = reward[self.K-1] - reward[self.K-2]
+		print("Expected reward gap: ",gap)
 
 	def inilization_pull(self):
 		# initialize by pulling each arm once at first
 		for i in range(self.K):
 			self.A_aggregated += self.matrix_dot(self.X[i])
-			if self.case == 'linear':
-				r = (self.theta.dot(self.X[i]) + np.random.randn() * self.sigma)
-			if self.case == 'tabular':
-				r = (self.t_reward[i] + np.random.randn() * self.sigma)
+			r = (self.theta.dot(self.X[i]) + np.random.randn() * self.sigma)
 			self.b_aggregated += self.X[i]*r
 		
+		for currentclientID in range(10):
+			self.clients[currentclientID] = LocalClient(self.dimension, self.theta, self.sigma, self.X, self.reg, self.delta)
+			self.clients[currentclientID].A_local = copy.deepcopy(self.A_aggregated)
+			self.clients[currentclientID].b_local = copy.deepcopy(self.b_aggregated)
+			self.clients[currentclientID].arm_selection_local = copy.deepcopy(self.arm_selection_aggregated)
+
+
 		# Select-direction after initializing
 		self.theta_hat = np.linalg.solve(self.A_aggregated, self.b_aggregated)
 		self.est_reward = self.X.dot(self.theta_hat)
 		self.it = np.argmax(self.est_reward)
 		self.jt = np.argmax(self.est_reward - self.est_reward[self.it] +
-				np.array([self.confidence_bound(x - self.X[self.it], self.A_aggregated) for x in self.X]))
-		self.B = self.est_reward[self.jt] - self.est_reward[self.it] + self.confidence_bound(self.X[self.it] - self.X[self.jt], self.A_aggregated)
+				np.array([self.confidence_bound(x - self.X[self.it], self.A_aggregated, np.sum(self.arm_selection_aggregated)) for x in self.X]))
+		self.B = self.est_reward[self.jt] - self.est_reward[self.it] + self.confidence_bound(self.X[self.it] - self.X[self.jt], self.A_aggregated, np.sum(self.arm_selection_aggregated))
+		# print(self.est_reward[self.jt])
+		# print(self.est_reward[self.it])
+		# print(self.confidence_bound(self.X[self.it] - self.X[self.jt], self.A_aggregated, self.samplecomplexity))
+		# exit(0)
 
 	def matrix_dot(self, a):
-		return np.expand_dims(a, -1).dot(np.expand_dims(a, axis=0))
+		return np.expand_dims(a, axis=1).dot(np.expand_dims(a, axis=0))
 
-	def confidence_bound(self, x, A):
-		det = np.linalg.det(A)
+	def confidence_bound(self, x, A, t):
+		L = 1
 		tmp = np.sqrt(x.dot(np.linalg.inv(A)).dot(x))
 		return tmp * (self.sigma * np.sqrt(self.dimension * 
-				     np.log(self.K * self.K * np.sqrt(det) / self.delta)) + 
-					np.sqrt(self.reg) * 2)
+				     np.log(self.K * self.K * (1 + t * L * L) / self.reg / self.delta)) + 
+					 np.sqrt(self.reg) * 2)
 
-	def decide_arm(self, ratio):
+	def decide_arm(self, y,A):
 		# select the arm 
-		return np.argmin([self.arm_selection_aggregated[i]/(ratio[i] + 1.0e-10) for i in range(self.K)])
+		tmp = [y.dot(np.linalg.inv(A + self.matrix_dot(x))).dot(y) for x in (self.X)]
+		return np.argmin(tmp)
 
 	def run(self):
 
@@ -224,57 +235,35 @@ class UGapE_mult:
 		# initialize by pulling each arm once at first
 		self.inilization_pull()
 
-		self.ratio = dict()
-		for i in range(self.K):
-			for j in range(self.K):
-				self.ratio[(i, j)] = self.get_optimal(self.X[i] - self.X[j])
-
 		# startTime = datetime.datetime.now()
 		while(self.B > self.epsilon):
 
-			# assume have 100 users(clients)
-			currentclientID = random.randint(1, 100)
-			if currentclientID not in self.clients:
-				self.clients[currentclientID] = LocalClient(self.dimension, self.theta, self.sigma)
-				self.A_downloadbuffer[currentclientID] = copy.deepcopy(self.A_aggregated)
-				self.b_downloadbuffer[currentclientID] = copy.deepcopy(self.b_aggregated)
-				self.arm_selection_downloadbuffer[currentclientID] = copy.deepcopy(self.arm_selection_aggregated)
+			# assume have 10 users(clients)
+			currentclientID = random.randint(0,9)
 
 			# select target arm
-			a = self.decide_arm(self.ratio[(self.it, self.jt)])
+			# a = self.decide_arm(self.X[self.it]- self.X[self.jt], self.A_aggregated)
 
 			# send the selected arm to client, update local and upload buffer
-			if self.case == 'linear':
-				self.clients[currentclientID].localUpdate(self.X[a])
-			elif self.case == 'tabular':
-				self.clients[currentclientID].localUpdate_tabular(self.X[a], self.t_reward[a])
+			self.clients[currentclientID].decide_arm()
 			
 			self.samplecomplexity += 1
 
-			if self.samplecomplexity % 100 == 0:
-				self.totalCommCost += 1
+			if self.samplecomplexity%5000 == 0:
+				print("T:", self.samplecomplexity)
+				print("arm_select:",self.arm_selection_aggregated)
+				print("totalComm: ",self.totalCommCost)
+				print("B:", self.B)
+				print("E:", self.epsilon)
+				print()
+
+
+			if self.samplecomplexity % 5 == 0:
+				self.totalCommCost += 2
 				# update server's aggregated
 				self.A_aggregated += self.clients[currentclientID].A_uploadbuffer
 				self.b_aggregated += self.clients[currentclientID].b_uploadbuffer
-				self.arm_selection_aggregated[a] += self.clients[currentclientID].arm_selection_uploadbuffer
-				# update server's download buffer for other clients
-				for clientID in self.A_downloadbuffer.keys():
-					if clientID != currentclientID:
-						self.A_downloadbuffer[clientID] += self.clients[currentclientID].A_uploadbuffer
-						self.b_downloadbuffer[clientID] += self.clients[currentclientID].b_uploadbuffer
-						self.arm_selection_downloadbuffer[clientID][a] += self.clients[currentclientID].arm_selection_uploadbuffer
-				# clear client's upload buffer
-				self.clients[currentclientID].A_uploadbuffer = np.zeros((self.dimension, self.dimension))
-				self.clients[currentclientID].b_uploadbuffer = np.zeros(self.dimension)
-				self.clients[currentclientID].arm_selection_local = 0
-
-				if self.samplecomplexity%5000 == 0:
-					print("T:", self.samplecomplexity)
-					print("arm_select:",self.arm_selection_aggregated)
-					print("B:", self.B)
-					print("E:", self.epsilon)
-					print()
-
+				self.arm_selection_aggregated += self.clients[currentclientID].arm_selection_uploadbuffer
 				
 				# Select_direction
 				self.theta_hat = np.linalg.solve(self.A_aggregated, self.b_aggregated)
@@ -282,10 +271,31 @@ class UGapE_mult:
 				self.it = np.argmax(self.est_reward)
 				self.jt = np.argmax(self.est_reward - 
 									np.max(self.est_reward) + 
-									np.array([self.confidence_bound(x - self.X[self.it], self.A_aggregated) for x in self.X]))
-				self.B = self.est_reward[self.jt] - self.est_reward[self.it] + self.confidence_bound(self.X[self.it] - self.X[self.jt], self.A_aggregated)
+									np.array([self.confidence_bound(x - self.X[self.it], self.A_aggregated, np.sum(self.arm_selection_aggregated)) for x in self.X]))
+				self.B = self.est_reward[self.jt] - self.est_reward[self.it] + self.confidence_bound(self.X[self.it] - self.X[self.jt], self.A_aggregated, np.sum(self.arm_selection_aggregated))
 				# self.B = np.max(self.est_reward-np.max(self.est_reward)+np.array([self.confidence_bound(x - self.X[self.it], self.A, self.samplecomplexity) for x in self.X]))
 				# print("Iteration %d"%self.samplecomplexity, " Elapsed time", datetime.datetime.now() - startTime)
+
+
+				self.clients[currentclientID].A_local = copy.deepcopy(self.A_aggregated) 
+				self.clients[currentclientID].b_local = copy.deepcopy(self.b_aggregated) 
+				self.clients[currentclientID].arm_selection_local = copy.deepcopy(self.arm_selection_aggregated)
+
+
+				# clear client's upload buffer
+				self.clients[currentclientID].A_uploadbuffer = np.zeros((self.dimension, self.dimension))
+				self.clients[currentclientID].b_uploadbuffer = np.zeros(self.dimension)
+				self.clients[currentclientID].arm_selection_uploadbuffer = np.zeros(self.dimension)
+				
 		best_arm = self.it
+		print()
+		print("SampleComplexity: ", self.samplecomplexity)
+		print("arm selec: ", self.arm_selection_aggregated)
+		print("totalComm: ", self.totalCommCost)
+		print("B: ", self.B)
+		print("E: ", self.epsilon)
+		print("Best arm: ", best_arm)
+		# exit(0)
 		return self.samplecomplexity, self.arm_selection_aggregated, best_arm, self.totalCommCost
+		# return self.samplecomplexity, self.arm_selection_aggregated, best_arm, self.samplecomplexity*2
 
