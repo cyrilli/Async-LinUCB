@@ -6,6 +6,7 @@ import sys
 sys.path.append('/nfs/stak/users/songchen/research/Async-LinUCB/Dataset/SimArticles')
 from Articles import ArticleManager
 from Users import UserManager
+from Movies import MovieManager
 from util_functions import featureUniform, gaussianFeature
 
 class LocalClient:
@@ -25,10 +26,10 @@ class LocalClient:
 
 
 		self.V_local = np.zeros((self.d, self.d))
-		self.b_local = np.zeros(self.K)
+		self.b_local = np.zeros(self.d)
 		self.arm_selection_local = np.zeros(self.K)
 
-		self.V_uploadbuffer = np.zeros((self.d, self.K))
+		self.V_uploadbuffer = np.zeros((self.d, self.d))
 		self.b_uploadbuffer = np.zeros(self.d)
 		self.arm_selection_uploadbuffer = np.zeros(self.K)
 
@@ -76,11 +77,12 @@ class LocalClient:
 		return (trigger1 or trigger2)
 
 class DisALinPE:
-	def __init__(self, dimension, epsilon, delta, NoiseScale, dataset, case, gap, n_clients, gamma1, gamma2, reg):
+	def __init__(self, dimension, epsilon, delta, NoiseScale, K, dataset, case, gap, n_clients, gamma1, gamma2, reg):
 		self.dimension = dimension
 		self.epsilon = epsilon
 		self.delta = delta
 		self.NoiseScale = NoiseScale
+		self.K = K
 		self.dataset = dataset
 		self.case = 'linear'
 		self.n_clients = n_clients
@@ -91,21 +93,38 @@ class DisALinPE:
 
 
 		# use the generated Articles dataset
-		if dataset == 0:
-			UM = UserManager(self.dimension, 0, thetaFunc=gaussianFeature, argv={'l2_limit': 1})
-			User_filename = '/nfs/stak/users/songchen/research/Async-LinUCB/Dataset/SimArticles/usersHomo.dat'
-			users = UM.loadHomoUsers(User_filename)
-			# For the homogeneous case:
-			self.theta = users[0].theta
+		# if dataset == 0:
+		# 	UM = UserManager(self.dimension, 0, thetaFunc=gaussianFeature, argv={'l2_limit': 1})
+		# 	User_filename = '/nfs/stak/users/songchen/research/Async-LinUCB/Dataset/SimArticles/usersHomo.dat'
+		# 	users = UM.loadHomoUsers(User_filename)
+		# 	# For the homogeneous case:
+		# 	self.theta = users[0].theta
 
-			AM = ArticleManager(self.dimension, 5, argv={'l2_limit': 1}, theta=self.theta)
-			Article_filename = '/nfs/stak/users/songchen/research/Async-LinUCB/Dataset/SimArticles/ArticlesForHomo_' + str(gap/10) + '_' + str(5) + '.dat'
-			articles = AM.loadArticles(Article_filename)
-			self.X = np.zeros((len(articles), self.dimension), dtype=float)
-			self.K = len(articles)
-			for i in range(self.K):
-				self.X[i] = articles[i].featureVector
+		# 	AM = ArticleManager(self.dimension, 5, argv={'l2_limit': 1}, theta=self.theta)
+		# 	Article_filename = '/nfs/stak/users/songchen/research/Async-LinUCB/Dataset/SimArticles/ArticlesForHomo_' + str(gap/10) + '_' + str(5) + '.dat'
+		# 	articles = AM.loadArticles(Article_filename)
+		# 	self.X = np.zeros((len(articles), self.dimension), dtype=float)
+		# 	self.K = len(articles)
+		# 	for i in range(self.K):
+		# 		self.X[i] = articles[i].featureVector
 			# self.theta = np.zeros(self.dimension, dtype=float)
+
+		# use the movielen data
+		if dataset == 0:
+			theta_filename = '/nfs/stak/users/songchen/research/Async-LinUCB/Dataset/MovieLen/150wtheta.dat'
+			self.theta = []
+			with open(theta_filename, 'r') as f:
+				for line in f:
+					self.theta.append(float(line))
+			self.theta = np.array(self.theta)
+			
+			MM = MovieManager(self.dimension, self.K, argv={'l2_limit': 1}, theta = self.theta)
+			movie_filname = '/nfs/stak/users/songchen/research/Async-LinUCB/Dataset/MovieLen/MovieLen' + str(gap/10) + '_' + str(self.K) + '.dat'
+			movies = MM.loadMovies(movie_filname)
+			self.X = np.zeros((len(movies), self.dimension), dtype=float)
+			for i in range(self.K):
+				self.X[i] = movies[i].featureVector
+			self.gamma1 += (gap-1)*0.001
 
 		# syn dataset setting 1(corresponding to the LinGapE paper exp 7.1.1)
 		if dataset == 1 and case == 'linear':
@@ -147,8 +166,8 @@ class DisALinPE:
 		# client part
 		self.clients = {}
 		
-		self.V_aggregated = np.eye(self.K)*self.reg
-		self.b_aggregated = np.zeros(self.K)
+		self.V_aggregated = np.eye(self.dimension)*self.reg
+		self.b_aggregated = np.zeros(self.dimension)
 		self.arm_selection_aggregated = np.zeros(self.K)
 
 	def getReward(self, arm_vector):
@@ -236,8 +255,8 @@ class DisALinPE:
 				self.clients[currentclientID].b_local = copy.deepcopy(self.b_aggregated)
 				self.clients[currentclientID].arm_selection_local = copy.deepcopy(self.arm_selection_aggregated)
 
-				self.clients[currentclientID].V_uploadbuffer = np.zeros((self.dimension, self.K))
-				self.clients[currentclientID].b_uploadbuffer = np.zeros(self.K)
+				self.clients[currentclientID].V_uploadbuffer = np.zeros((self.dimension, self.dimension))
+				self.clients[currentclientID].b_uploadbuffer = np.zeros(self.dimension)
 				self.clients[currentclientID].arm_selection_uploadbuffer = np.zeros(self.K)
 			
 			if self.sampleComplexity % 5000 == 0:
@@ -246,9 +265,9 @@ class DisALinPE:
 				print("totalComm: ", self.totalCommCost)
 				print("B: ", self.B)
 				print("E: ", self.epsilon)
-				print("it jt: ", self.it, self.jt)
-				print(self.est_reward[self.jt] - self.est_reward[self.it])
-				print(self.confidence_bound(self.X[self.it] - self.X[self.jt], self.V_aggregated))
+				# print("it jt: ", self.it, self.jt)
+				# print(self.est_reward[self.jt] - self.est_reward[self.it])
+				# print(self.confidence_bound(self.X[self.it] - self.X[self.jt], self.V_aggregated))
 				print()
 		best_arm = self.it
 		print()

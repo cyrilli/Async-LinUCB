@@ -5,26 +5,29 @@ import datetime
 import sys
 
 sys.path.append('/nfs/stak/users/songchen/research/Async-LinUCB/Dataset/SimArticles')
+sys.path.append('/nfs/stak/users/songchen/research/Async-LinUCB/Dataset/MovieLen')
 from Articles import ArticleManager
 from Users import UserManager
+from Movies import MovieManager
 from util_functions import featureUniform, gaussianFeature
 
 class LocalClient:
-	def __init__(self, featureDimension, theta, sigma):
+	def __init__(self, featureDimension, theta, sigma, K):
 		self.d = featureDimension
 		self.theta = theta
 		self.sigma = sigma
+		self.K = K
 
 		# Sufficient statistics stored on the client #
 		# latest local sufficient statistics
 		self.A_local = np.zeros((self.d, self.d))  #lambda_ * np.identity(n=self.d)
 		self.b_local = np.zeros(self.d)
-		self.arm_selection_local = np.zeros(self.d)
+		self.arm_selection_local = np.zeros(self.K)
 
 		# aggregated sufficient statistics recently downloaded
 		self.A_uploadbuffer = np.zeros((self.d, self.d))
 		self.b_uploadbuffer = np.zeros(self.d)
-		self.arm_selection_uploadbuffer = np.zeros(self.d)
+		self.arm_selection_uploadbuffer = np.zeros(self.K)
 	
 	def matrix_dot(self, a):
 		return np.expand_dims(a, axis=1).dot(np.expand_dims(a, axis=0))
@@ -49,35 +52,54 @@ class LocalClient:
 		self.arm_selection_uploadbuffer[a] += 1
 
 class LinGapE_full:
-	def __init__(self, dimension, epsilon, delta, NoiseScale,  dataset, case, gap):
+	def __init__(self, dimension, epsilon, delta, NoiseScale, K, dataset, case, gap):
 		self.dimension = dimension
 		self.epsilon = epsilon
 		self.delta = delta
 		self.NoiseScale = NoiseScale
+		self.K = K
 		self.dataset = dataset
 		self.case = case
 
 		# for LinGapE computing
 		self.sigma = 1.0
+		# self.sigma = NoiseScale
 		self.reg = 1
 		# self.A = np.eye(self.dimension)*self.reg
 		# self.b = np.zeros(self.dimension)
 
 		# use the given article dataset
-		if dataset == 0:
-			UM = UserManager(self.dimension, 0, thetaFunc=gaussianFeature, argv={'l2_limit': 1})
-			User_filename = '/nfs/stak/users/songchen/research/Async-LinUCB/Dataset/SimArticles/usersHomo.dat'
-			users = UM.loadHomoUsers(User_filename)
-			# For the homogeneous case:
-			self.theta = users[0].theta
+		# if dataset == 0:
+		# 	UM = UserManager(self.dimension, 0, thetaFunc=gaussianFeature, argv={'l2_limit': 1})
+		# 	User_filename = '/nfs/stak/users/songchen/research/Async-LinUCB/Dataset/SimArticles/usersHomo.dat'
+		# 	users = UM.loadHomoUsers(User_filename)
+		# 	# For the homogeneous case:
+		# 	self.theta = users[0].theta
 
-			AM = ArticleManager(self.dimension, self.dimension, argv={'l2_limit': 1}, theta=self.theta)
-			Article_filename = '/nfs/stak/users/songchen/research/Async-LinUCB/Dataset/SimArticles/ArticlesForHomo_' + str(gap/10) + '_' + str(self.dimension) + '.dat'
-			articles = AM.loadArticles(Article_filename)
-			self.X = np.zeros((len(articles), self.dimension), dtype=float)
-			self.K = len(articles)
+		# 	AM = ArticleManager(self.dimension, self.dimension, argv={'l2_limit': 1}, theta=self.theta)
+		# 	Article_filename = '/nfs/stak/users/songchen/research/Async-LinUCB/Dataset/SimArticles/ArticlesForHomo_' + str(gap/10) + '_' + str(self.dimension) + '.dat'
+		# 	articles = AM.loadArticles(Article_filename)
+		# 	self.X = np.zeros((len(articles), self.dimension), dtype=float)
+		# 	self.K = len(articles)
+		# 	for i in range(self.K):
+		# 		self.X[i] = articles[i].featureVector
+
+		# use the movielen data
+		if dataset == 0:
+			theta_filename = '/nfs/stak/users/songchen/research/Async-LinUCB/Dataset/MovieLen/150wtheta.dat'
+			self.theta = []
+			with open(theta_filename, 'r') as f:
+				for line in f:
+					self.theta.append(float(line))
+			self.theta = np.array(self.theta)
+			
+			MM = MovieManager(self.dimension, self.K, argv={'l2_limit': 1}, theta = self.theta)
+			movie_filname = '/nfs/stak/users/songchen/research/Async-LinUCB/Dataset/MovieLen/MovieLen' + str(gap/10) + '_' + str(self.K) + '.dat'
+			movies = MM.loadMovies(movie_filname)
+			self.X = np.zeros((len(movies), self.dimension), dtype=float)
 			for i in range(self.K):
-				self.X[i] = articles[i].featureVector
+				self.X[i] = movies[i].featureVector
+
 
 		# syn dataset setting 1(corresponding to the LinGapE paper exp 7.1.1)
 		if dataset == 1:
@@ -219,7 +241,7 @@ class LinGapE_full:
 			# assume have 10 users(clients)
 			currentclientID = random.randint(1, 10)
 			if currentclientID not in self.clients:
-				self.clients[currentclientID] = LocalClient(self.dimension, self.theta, self.sigma)
+				self.clients[currentclientID] = LocalClient(self.dimension, self.theta, self.sigma, self.K)
 				self.A_downloadbuffer[currentclientID] = copy.deepcopy(self.A_aggregated)
 				self.b_downloadbuffer[currentclientID] = copy.deepcopy(self.b_aggregated)
 				self.arm_selection_downloadbuffer[currentclientID] = copy.deepcopy(self.arm_selection_aggregated)
@@ -259,7 +281,7 @@ class LinGapE_full:
 				# clear client's upload buffer
 				self.clients[currentclientID].A_uploadbuffer = np.zeros((self.dimension, self.dimension))
 				self.clients[currentclientID].b_uploadbuffer = np.zeros(self.dimension)
-				self.clients[currentclientID].arm_selection_uploadbuffer = np.zeros(self.dimension)
+				self.clients[currentclientID].arm_selection_uploadbuffer = np.zeros(self.K)
 
 				# other agents download the update
 				for clientID, client in self.clients.items():

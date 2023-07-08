@@ -13,6 +13,7 @@ MovieLens_save_address = './MovieLensResults'
 save_Single_Agent = './SimSingleAgent'
 save_Tabular_Case = './SimTabular'
 save_Linear_Case = './SimLinear'
+save_Linear_Movie_Case = './MovLinear'
 
 save_addressResult = "./Results/Sparse"
 
